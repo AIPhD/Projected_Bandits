@@ -27,11 +27,17 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj):
                                             estim=init_estim,
                                             method='ccipca',
                                             exp_scale=0.1)
-    proj_regret, proj_std = t.meta_training(task_params,
-                                            arm_set,
-                                            estim=init_estim,
-                                            method='sga',
-                                            exp_scale=0.1)
+    ipca_dimknown_regret, ipca_dimknown_std = t.meta_training(task_params,
+                                                              arm_set,
+                                                              estim=init_estim,
+                                                              method='ccipca',
+                                                              exp_scale=0.1,
+                                                              dim_known=True)
+    # proj_regret, proj_std = t.meta_training(task_params,
+    #                                         arm_set,
+    #                                         estim=init_estim,
+    #                                         method='sga',
+    #                                         exp_scale=0.1)
     linucb_regret, linucb_std, theta_estim = t.projected_training(task_params[-1],
                                                                   arm_set,
                                                                   estim=init_estim,
@@ -50,11 +56,15 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj):
                             plot_label="Real Projection")
     e.multiple_regret_plots([ipca_regret],
                             [ipca_std],
-                            plot_label="CCIPCA")
-    e.multiple_regret_plots([proj_regret],
-                            [proj_std],
-                            plot_label="SGA",
+                            plot_label="CCIPCA Rank unknown")
+    e.multiple_regret_plots([ipca_dimknown_regret],
+                            [ipca_dimknown_std],
+                            plot_label="CCIPCA",
                             do_plot=True)
+    # e.multiple_regret_plots([proj_regret],
+    #                         [proj_std],
+    #                         plot_label="SGA",
+    #                         do_plot=True)
 
 
 def multi_task_evaluation(task_params, arm_set, init_estim, proj_mat):

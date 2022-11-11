@@ -56,8 +56,9 @@ def online_pca(theta_data, u_proj=None, learning_rate=1, momentum_scale=0.99):
     return proj_mat, u_proj
 
 
-def cc_ipca(theta_data, v_proj=None, u_proj=None):
+def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
     '''Covariance free strategy to solve online pca, without relying on hyper parameters.'''
+    dim_align_counter = np.zeros(c.REPEATS)
     len_t = len(theta_data)
     mean_theta = np.sum(theta_data, axis=0)/len_t
     gamma_theta = 1/len_t * np.sum(np.einsum('mik,mil->mikl',
@@ -88,12 +89,26 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None):
                                                                         u_proj)
         eig_v = np.linalg.norm(v_proj, axis=1)
     arg_sorted_eig = np.argsort(eig_v, axis=1)
+
+
+    for i in np.arange(len(dim_align_counter)):
+        for j in np.arange(len(eig_v[0])):
+            if eig_v[i][j] > 0.05:
+                dim_align_counter[i] += 1
+
     for i in np.arange(c.REPEATS):
+
+        if dim_known:
+            shared_dim = c.DIMENSION_ALIGN
+        else:
+            shared_dim = dim_align_counter[i]
+
         u_proj[i] = normalize(v_proj[i], axis=0, norm='l2')
-        for j in np.arange(c.DIMENSION_ALIGN):
+        for j in np.arange(shared_dim):
             u_proj[i][:, np.where(arg_sorted_eig[i]==j)[0]]=np.zeros(c.DIMENSION)[np.newaxis].T
 
     proj_mat = np.einsum('ikj,ilj->ikl', u_proj, u_proj)
+    print(dim_align_counter)
     return proj_mat, v_proj, u_proj
 
 
@@ -198,7 +213,8 @@ def meta_training(theta_opt_list,
                   target_context,
                   estim=np.abs(np.random.uniform(size=c.DIMENSION)),
                   method='ccipca',
-                  exp_scale=1):
+                  exp_scale=1,
+                  dim_known=False):
     '''Meta learning algorithm updating affine subspace after each training.'''
     theta_array = []
     i = 0
@@ -218,7 +234,10 @@ def meta_training(theta_opt_list,
             if method == 'sga':
                 learned_proj, u_proj = online_pca(np.asarray(theta_array), u_proj)
             elif method == 'ccipca':
-                learned_proj, v_proj, u_proj = cc_ipca(np.asarray(theta_array), v_proj, u_proj)
+                learned_proj, v_proj, u_proj = cc_ipca(np.asarray(theta_array),
+                                                       v_proj,
+                                                       u_proj,
+                                                       dim_known=dim_known)
 
         i += 1
 
