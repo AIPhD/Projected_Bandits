@@ -23,6 +23,30 @@ def ucb_function(x_instances,
                                                               x_instances)))
     return reward_estim_t + expl
 
+def ts_function(x_instances,
+                a_inv,
+                theta_t,
+                off_set,
+                proj_mat):
+    '''Function handling the thompson sampling with shared subspaces.'''
+    uncertainty_scale = 0.1
+    theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
+    w_tild = np.zeros((len(a_inv), len(theta_t[0])))
+    inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - proj_mat
+
+    for i in np.arange(a_inv):
+        cov_a = uncertainty_scale * a_inv[i]
+        theta_tild[i] = np.random.multivariate_normal(theta_t[i], cov_a)
+        w_tild[i] = np.random.multivariate_normal(off_set[i],
+                                                  uncertainty_scale * np.identity(len(off_set[0])))
+
+    final_theta = np.einsum('ijk,ik->ij',
+                            proj_mat,
+                            theta_tild) + np.einsum('ijk,ik->ij',
+                                                    inv_proj,
+                                                    w_tild)
+    return np.einsum('jk,ik,ij', x_instances, final_theta)
+
 
 def online_pca(theta_data, u_proj=None, learning_rate=1, momentum_scale=0.99):
     '''Online PCA function in order to determine affine subspace.'''
@@ -115,8 +139,10 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
 def projected_training(theta_opt,
                        target_context,
                        proj_mat=np.tile(np.identity(c.DIMENSION),(c.REPEATS,1,1)),
+                       off_set=np.zeros((c.REPEATS, c.DIMENSION)),
                        estim=np.abs(np.random.uniform(size=c.DIMENSION)),
                        repeats=c.REPEATS,
+                       decision_making='ucb',
                        arms_pulled_plot=False,
                        exp_scale=1):
     '''Training algorithm based on linUCB and a biased regularization constrained.'''
@@ -131,6 +157,7 @@ def projected_training(theta_opt,
     rewards = np.zeros((repeats, c.EPOCHS))
     a_matrix = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
     a_inv = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
+    inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - proj_mat
 
     for i in range(0, c.REPEATS):
         a_matrix[i] = c.LAMB_1 * np.identity(c.DIMENSION) - (c.LAMB_1 - c.LAMB_2) * proj_mat[i]
@@ -138,18 +165,26 @@ def projected_training(theta_opt,
                                  (c.LAMB_1 - c.LAMB_2) * proj_mat[i])
 
 
-    b_vector = np.tile(np.zeros(c.DIMENSION), (repeats, 1))
+    b_vector = np.tile(np.zeros(c.DIMENSION), (repeats, 1)) + c.LAMB_1 * np.einsum('ijk,ik->ij',
+                                                                                   inv_proj,
+                                                                                   off_set)
     regret_evol = np.zeros((repeats, c.EPOCHS))
     x_history = []
     index_list = []
 
     for i in range(0, c.EPOCHS):
 
-        index = np.argmax(ucb_function(target_data,
-                                       a_inv,
-                                       theta_estim,
-                                       gamma_scalar,
-                                       expl_scale=exp_scale), axis=1)
+        if decision_making == 'ucb':
+            index = np.argmax(ucb_function(target_data,
+                                           a_inv,
+                                           theta_estim,
+                                           gamma_scalar,
+                                           expl_scale=exp_scale), axis=1)
+        elif decision_making == 'ts':
+            index = np.argmax(ts_function(target_data,
+                                          a_inv,
+                                          theta_estim,
+                                          ))
 
         index_opt = np.argmax(np.einsum('ij,kj->ik',theta_target, target_data), axis=1)
         instance = target_data[index]
@@ -213,6 +248,7 @@ def meta_training(theta_opt_list,
                   target_context,
                   estim=np.abs(np.random.uniform(size=c.DIMENSION)),
                   method='ccipca',
+                  decision_making='ucb',
                   exp_scale=1,
                   dim_known=False):
     '''Meta learning algorithm updating affine subspace after each training.'''
@@ -227,7 +263,8 @@ def meta_training(theta_opt_list,
                                                        target_context,
                                                        proj_mat=learned_proj,
                                                        estim=estim,
-                                                       exp_scale=exp_scale)
+                                                       exp_scale=exp_scale,
+                                                       decision_making=decision_making)
         theta_array.append(theta)
 
         if i > 50:

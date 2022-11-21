@@ -27,6 +27,12 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj):
                                             estim=init_estim,
                                             method='ccipca',
                                             exp_scale=0.1)
+    ts_regret, ts_std = t.meta_training(task_params,
+                                        arm_set,
+                                        estim=init_estim,
+                                        method='ccipca',
+                                        decision_making='ts',
+                                        exp_scale=0.1)
     ipca_dimknown_regret, ipca_dimknown_std = t.meta_training(task_params,
                                                               arm_set,
                                                               estim=init_estim,
@@ -56,6 +62,9 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj):
                             plot_label="Real Projection")
     e.multiple_regret_plots([ipca_regret],
                             [ipca_std],
+                            plot_label="CCIPCA Rank unknown")
+    e.multiple_regret_plots([ts_regret],
+                            [ts_std],
                             plot_label="CCIPCA Rank unknown")
     e.multiple_regret_plots([ipca_dimknown_regret],
                             [ipca_dimknown_std],
