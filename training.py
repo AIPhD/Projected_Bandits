@@ -29,23 +29,23 @@ def ts_function(x_instances,
                 off_set,
                 proj_mat):
     '''Function handling the thompson sampling with shared subspaces.'''
-    uncertainty_scale = 0.1
+    uncertainty_scale = 0.1 * c.SIGMA * np.sqrt(24/0.5 * c.DIMENSION_ALIGN * np.log(1/c.DELTA))
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
     w_tild = np.zeros((len(a_inv), len(theta_t[0])))
     inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - proj_mat
 
-    for i in np.arange(a_inv):
+    for i in np.arange(len(a_inv)):
         cov_a = uncertainty_scale * a_inv[i]
         theta_tild[i] = np.random.multivariate_normal(theta_t[i], cov_a)
         w_tild[i] = np.random.multivariate_normal(off_set[i],
-                                                  uncertainty_scale * np.identity(len(off_set[0])))
+                                                  0.01 * np.identity(len(off_set[0])))
 
     final_theta = np.einsum('ijk,ik->ij',
                             proj_mat,
                             theta_tild) + np.einsum('ijk,ik->ij',
                                                     inv_proj,
                                                     w_tild)
-    return np.einsum('jk,ik,ij', x_instances, final_theta)
+    return np.einsum('jk,ik->ij', x_instances, final_theta)
 
 
 def online_pca(theta_data, u_proj=None, learning_rate=1, momentum_scale=0.99):
@@ -117,7 +117,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
 
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
-            if eig_v[i][j] > 0.05:
+            if eig_v[i][j] > 0.01:
                 dim_align_counter[i] += 1
 
     for i in np.arange(c.REPEATS):
@@ -164,7 +164,6 @@ def projected_training(theta_opt,
         a_inv[i] = np.linalg.inv(c.LAMB_1 * np.identity(c.DIMENSION) -
                                  (c.LAMB_1 - c.LAMB_2) * proj_mat[i])
 
-
     b_vector = np.tile(np.zeros(c.DIMENSION), (repeats, 1)) + c.LAMB_1 * np.einsum('ijk,ik->ij',
                                                                                    inv_proj,
                                                                                    off_set)
@@ -184,7 +183,8 @@ def projected_training(theta_opt,
             index = np.argmax(ts_function(target_data,
                                           a_inv,
                                           theta_estim,
-                                          ))
+                                          off_set,
+                                          proj_mat), axis=1)
 
         index_opt = np.argmax(np.einsum('ij,kj->ik',theta_target, target_data), axis=1)
         instance = target_data[index]
@@ -255,6 +255,7 @@ def meta_training(theta_opt_list,
     theta_array = []
     i = 0
     learned_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1))
+    off_set = np.zeros((c.REPEATS, c.DIMENSION))
     u_proj = None
     v_proj = None
 
@@ -262,10 +263,12 @@ def meta_training(theta_opt_list,
         regret, regret_dev, theta = projected_training(theta_opt,
                                                        target_context,
                                                        proj_mat=learned_proj,
+                                                       off_set=off_set,
                                                        estim=estim,
                                                        exp_scale=exp_scale,
                                                        decision_making=decision_making)
         theta_array.append(theta)
+        theta_mean = np.sum(np.asarray(theta_array), axis=0)/len(theta_array)
 
         if i > 50:
             if method == 'sga':
@@ -275,6 +278,8 @@ def meta_training(theta_opt_list,
                                                        v_proj,
                                                        u_proj,
                                                        dim_known=dim_known)
+                inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - learned_proj
+                off_set = np.einsum('ijk,ik->ij', inv_proj, theta_mean)
 
         i += 1
 

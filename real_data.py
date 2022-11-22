@@ -39,9 +39,9 @@ def context_vectors(movie_data):
     genre_string = np.asarray(movie_data)[:, -1]
     context_data = np.zeros((len(genre_string),
                              len(genre_list)))
-    for i in range(0, len(genre_string)):
+    for i in np.arange(len(genre_string)):
         genres = genre_string[i].split('|')
-        for j in range(0, len(genre_list)):
+        for j in np.arange(len(genre_list)):
             if genre_list[j] in genres:
                 context_data[i][j] += 1
         context_data[i] /= np.sqrt(np.sum(context_data[i]))
@@ -51,7 +51,7 @@ def context_vectors(movie_data):
 def bandit_rewards(user_data, rating_data, movie_data):
     '''construct reward matrix, based on user ratings.'''
     reward_data = np.zeros((len(user_data), len(movie_data)))
-    for k in range(0, len(rating_data)):
+    for k in np.arange(len(rating_data)):
         if int(rating_data[k][1]) > len(movie_data):
             continue
 
