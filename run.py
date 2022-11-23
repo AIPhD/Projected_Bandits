@@ -12,14 +12,15 @@ def main():
     arm_set = multi_tasks.target_context
     task_params = multi_tasks.theta_opt
     proj_mat = multi_tasks.subspace_projection
+    off_set = np.tile(multi_tasks.off_set, (c.REPEATS, 1))
     proj_mat = np.tile(proj_mat, (c.REPEATS, 1, 1))
     init_estim = np.abs(np.random.uniform(size=c.DIMENSION))
 
-    meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat)
+    meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
     # multi_task_evaluation(task_params, arm_set, init_estim, proj_mat)
 
 
-def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj):
+def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_set):
     '''Evaluation of the meta learning task.'''
 
     ipca_regret, ipca_std = t.meta_training(task_params,
@@ -27,6 +28,12 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj):
                                             estim=init_estim,
                                             method='ccipca',
                                             exp_scale=0.1)
+    ts_regret, ts_std = t.meta_training(task_params,
+                                        arm_set,
+                                        estim=init_estim,
+                                        method='ccipca',
+                                        decision_making='ts',
+                                        exp_scale=0.1)
     ipca_dimknown_regret, ipca_dimknown_std = t.meta_training(task_params,
                                                               arm_set,
                                                               estim=init_estim,
@@ -45,6 +52,7 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj):
     ideal_regret, ideal_std, theta = t.projected_training(task_params[-1],
                                                           arm_set,
                                                           proj_mat=real_proj,
+                                                          off_set=off_set,
                                                           estim=init_estim,
                                                           exp_scale=0.1)
 
@@ -53,13 +61,16 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj):
                             plot_label="LinUCB")
     e.multiple_regret_plots([ideal_regret],
                             [ideal_std],
-                            plot_label="Real Projection")
+                            plot_label="Real Projection LinUCB")
     e.multiple_regret_plots([ipca_regret],
                             [ipca_std],
-                            plot_label="CCIPCA Rank unknown")
+                            plot_label="Projected LinUCB")
+    e.multiple_regret_plots([ts_regret],
+                            [ts_std],
+                            plot_label="Projected Thompson Sampling")
     e.multiple_regret_plots([ipca_dimknown_regret],
                             [ipca_dimknown_std],
-                            plot_label="CCIPCA",
+                            plot_label="Projected LinUCB Rank known",
                             do_plot=True)
     # e.multiple_regret_plots([proj_regret],
     #                         [proj_std],

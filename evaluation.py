@@ -8,7 +8,7 @@ font  = {
     'size' : 14
 }
 
-PLOT_DIR = '/home/steven/projected_bandits/plots/'
+PLOT_DIR = '/home/steven/Projected_Bandits/plots/'
 
 plt.rcParams.update({
     "text.usetex": True,
