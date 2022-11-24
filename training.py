@@ -27,9 +27,10 @@ def ts_function(x_instances,
                 a_inv,
                 theta_t,
                 off_set,
-                proj_mat):
+                proj_mat,
+                time_step):
     '''Function handling the thompson sampling with shared subspaces.'''
-    uncertainty_scale = 0.1 * c.SIGMA * np.sqrt(24/0.5 * c.DIMENSION_ALIGN * np.log(1/c.DELTA))
+    uncertainty_scale = c.SIGMA * np.sqrt(9 * c.DIMENSION_ALIGN * np.log(time_step/c.DELTA))
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
     w_tild = np.zeros((len(a_inv), len(theta_t[0])))
     inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - proj_mat
@@ -63,7 +64,7 @@ def online_pca(theta_data, u_proj=None, learning_rate=1, momentum_scale=0.99):
         step_scale = 1
         while np.linalg.norm(np.einsum('kl,lj->kj',
                                        gamma_theta[k],
-                                       u_proj[k])) > 0.02 and step_scale < 15000:
+                                       u_proj[k])) > 0.01 and step_scale < 15000:
             sga_step = 0
             sga_step = learning_rate/step_scale * (np.einsum('kl,lj->kj',
                                                              gamma_theta[k],
@@ -117,7 +118,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
 
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
-            if eig_v[i][j] > 0.01:
+            if eig_v[i][j] > 0.005:
                 dim_align_counter[i] += 1
 
     for i in np.arange(c.REPEATS):
@@ -184,7 +185,8 @@ def projected_training(theta_opt,
                                           a_inv,
                                           theta_estim,
                                           off_set,
-                                          proj_mat), axis=1)
+                                          proj_mat,
+                                          i+1), axis=1)
 
         index_opt = np.argmax(np.einsum('ij,kj->ik',theta_target, target_data), axis=1)
         instance = target_data[index]

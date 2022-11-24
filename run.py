@@ -33,6 +33,7 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
                                         estim=init_estim,
                                         method='ccipca',
                                         decision_making='ts',
+                                        dim_known=True,
                                         exp_scale=0.1)
     ipca_dimknown_regret, ipca_dimknown_std = t.meta_training(task_params,
                                                               arm_set,
@@ -54,7 +55,8 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
                                                           proj_mat=real_proj,
                                                           off_set=off_set,
                                                           estim=init_estim,
-                                                          exp_scale=0.1)
+                                                          exp_scale=0.1,
+                                                          decision_making='ucb')
 
     e.multiple_regret_plots([linucb_regret],
                             [linucb_std],

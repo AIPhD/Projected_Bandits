@@ -12,7 +12,7 @@ KAPPA = 0.01
 LAMB_1 = 10
 LAMB_2 = 1
 DELTA = 0.1 # np.exp(-2 * LAMB_2)
-EPOCHS = 250
+EPOCHS = 100
 REPEATS = 10
 
 try:
