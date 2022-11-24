@@ -50,6 +50,11 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
                                                                   arm_set,
                                                                   estim=init_estim,
                                                                   exp_scale=0.1)
+    thomps_regret, thomps_std, theta_estim = t.projected_training(task_params[-1],
+                                                                  arm_set,
+                                                                  estim=init_estim,
+                                                                  exp_scale=0.1,
+                                                                  decision_making='ts')
     ideal_regret, ideal_std, theta = t.projected_training(task_params[-1],
                                                           arm_set,
                                                           proj_mat=real_proj,
@@ -61,6 +66,9 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
     e.multiple_regret_plots([linucb_regret],
                             [linucb_std],
                             plot_label="LinUCB")
+    e.multiple_regret_plots([thomps_regret],
+                            [thomps_std],
+                            plot_label="Thompson Sampling")
     e.multiple_regret_plots([ideal_regret],
                             [ideal_std],
                             plot_label="Real Projection LinUCB")

@@ -2,7 +2,6 @@
 *.d
 *.png
 *.pdf
-*.pyc
 
 # Compiled Object files
 *.slo
@@ -35,3 +34,4 @@
 *.app
 __pycache__/
 .vscode/
+*.pyc

@@ -30,7 +30,8 @@ def ts_function(x_instances,
                 proj_mat,
                 time_step):
     '''Function handling the thompson sampling with shared subspaces.'''
-    uncertainty_scale = c.SIGMA * np.sqrt(9 * c.DIMENSION_ALIGN * np.log(time_step/c.DELTA))
+    epsilon = 1
+    uncertainty_scale = 0.001 * c.SIGMA**2 * 24/epsilon * c.DIMENSION * np.log(1/c.DELTA)
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
     w_tild = np.zeros((len(a_inv), len(theta_t[0])))
     inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - proj_mat
@@ -118,7 +119,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
 
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
-            if eig_v[i][j] > 0.005:
+            if eig_v[i][j] > 0.01:
                 dim_align_counter[i] += 1
 
     for i in np.arange(c.REPEATS):
