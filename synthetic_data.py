@@ -25,7 +25,7 @@ class TaskData:
         self.theta_opt = self.subspace_projection.dot(self.theta_opt.T).T
         self.off_set = np.dot(np.identity(dimension) - self.subspace_projection,
                               np.random.multivariate_normal(mean=np.zeros(dimension),
-                                                            cov=c.KAPPA * np.identity(dimension)).T).T
+                                                            cov=c.KAPPA*np.identity(dimension)).T).T
         self.theta_opt += self.off_set
 
         # if np.dot(self.theta_opt, self.theta_opt) > 1:

@@ -27,8 +27,7 @@ def ts_function(x_instances,
                 a_inv,
                 theta_t,
                 off_set,
-                proj_mat,
-                time_step):
+                proj_mat):
     '''Function handling the thompson sampling with shared subspaces.'''
     epsilon = 1
     uncertainty_scale = 0.001 * c.SIGMA**2 * 24/epsilon * c.DIMENSION * np.log(1/c.DELTA)
@@ -73,6 +72,7 @@ def online_pca(theta_data, u_proj=None, learning_rate=1, momentum_scale=0.99):
                                                    momentum_scale * sga_step)
             u_proj[k] += sga_step
             step_scale += 1
+
         print(step_scale)
 
     for i in range(0, c.REPEATS):
@@ -93,8 +93,10 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
     if v_proj is None:
         eig_v, u_proj = np.linalg.eigh(gamma_theta)
         v_proj = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
+
         for i in np.arange(len(u_proj)):
             v_proj[i] = eig_v[i] * u_proj[i]
+
     else:
         x_proj = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
         prod_x = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
@@ -114,11 +116,13 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
                                                                                   x_proj),
                                                                         u_proj)
         eig_v = np.linalg.norm(v_proj, axis=1)
+
     arg_sorted_eig = np.argsort(eig_v, axis=1)
 
 
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
+
             if eig_v[i][j] > 0.01:
                 dim_align_counter[i] += 1
 
@@ -130,6 +134,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
             shared_dim = dim_align_counter[i]
 
         u_proj[i] = normalize(v_proj[i], axis=0, norm='l2')
+
         for j in np.arange(shared_dim):
             u_proj[i][:, np.where(arg_sorted_eig[i]==j)[0]]=np.zeros(c.DIMENSION)[np.newaxis].T
 
@@ -151,7 +156,6 @@ def projected_training(theta_opt,
 
     theta_estim = estim/np.sqrt(np.dot(estim, estim))
     theta_estim = np.tile(theta_estim, (repeats, 1))
-
     target_data = target_context
     theta_target = np.tile(theta_opt, (repeats, 1))
     gamma_scalar = np.tile(c.GAMMA, (repeats, 1))
@@ -186,8 +190,7 @@ def projected_training(theta_opt,
                                           a_inv,
                                           theta_estim,
                                           off_set,
-                                          proj_mat,
-                                          i+1), axis=1)
+                                          proj_mat), axis=1)
 
         index_opt = np.argmax(np.einsum('ij,kj->ik',theta_target, target_data), axis=1)
         instance = target_data[index]
@@ -244,7 +247,7 @@ def projected_training(theta_opt,
         plt.show()
         plt.close()
 
-    return mean_regret, regret_dev, theta_estim
+    return [mean_regret, regret_dev, theta_estim, a_matrix, b_vector]
 
 
 def meta_training(theta_opt_list,
@@ -252,6 +255,7 @@ def meta_training(theta_opt_list,
                   estim=np.abs(np.random.uniform(size=c.DIMENSION)),
                   method='ccipca',
                   decision_making='ucb',
+                  high_bias=True,
                   exp_scale=1,
                   dim_known=False):
     '''Meta learning algorithm updating affine subspace after each training.'''
@@ -262,16 +266,31 @@ def meta_training(theta_opt_list,
     u_proj = None
     v_proj = None
 
+    if high_bias:
+        a_glob = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
+        a_inv_glob = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
+        b_glob = np.zeros((c.REPEATS, c.DIMENSION))
+
     for theta_opt in theta_opt_list:
-        regret, regret_dev, theta = projected_training(theta_opt,
-                                                       target_context,
-                                                       proj_mat=learned_proj,
-                                                       off_set=off_set,
-                                                       estim=estim,
-                                                       exp_scale=exp_scale,
-                                                       decision_making=decision_making)
-        theta_array.append(theta)
-        theta_mean = np.sum(np.asarray(theta_array), axis=0)/len(theta_array)
+        train_data = projected_training(theta_opt,
+                                        target_context,
+                                        proj_mat=learned_proj,
+                                        off_set=off_set,
+                                        estim=estim,
+                                        exp_scale=exp_scale,
+                                        decision_making=decision_making)
+        theta_array.append(train_data[2])
+
+        if high_bias:
+            a_glob += train_data[3]
+            b_glob += train_data[4]
+
+            for i in range(0, c.REPEATS):
+                a_inv_glob[i] = np.linalg.inv(a_glob[i])
+
+            theta_mean = np.einsum('ijk,ik->ij', a_inv_glob, b_glob)
+        else:
+            theta_mean = np.sum(np.asarray(theta_array), axis=0)/len(theta_array)
 
         if i > 50:
             if method == 'sga':
@@ -288,6 +307,4 @@ def meta_training(theta_opt_list,
 
     mean_proj = np.sum(learned_proj, axis=0)/len(learned_proj)
 
-    print(mean_proj)
-
-    return regret, regret_dev
+    return [train_data[0], train_data[1]]
