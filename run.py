@@ -23,40 +23,40 @@ def main():
 def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_set):
     '''Evaluation of the meta learning task.'''
 
-    high_varianca_data = t.meta_training(task_params,
-                                         arm_set,
-                                         estim=init_estim,
-                                         method='ccipca',
-                                         high_bias=False,
-                                         exp_scale=0.1)
-    high_bias_data = t.meta_training(task_params,
-                                     arm_set,
-                                     estim=init_estim,
-                                     method='ccipca',
-                                     high_bias=True,
-                                     exp_scale=0.1)
-    # ts_data = t.meta_training(task_params,
-    #                           arm_set,
-    #                           estim=init_estim,
-    #                           method='ccipca',
-    #                           decision_making='ts',
-    #                           dim_known=False,
-    #                           exp_scale=0.1)
-    # ipca_dimknown_data = t.meta_training(task_params,
+    # high_varianca_data = t.meta_training(task_params,
     #                                      arm_set,
     #                                      estim=init_estim,
     #                                      method='ccipca',
-    #                                      exp_scale=0.1,
-    #                                      dim_known=True)
+    #                                      high_bias=False,
+    #                                      exp_scale=0.1)
+    # high_bias_data = t.meta_training(task_params,
+    #                                  arm_set,
+    #                                  estim=init_estim,
+    #                                  method='ccipca',
+    #                                  high_bias=True,
+    #                                  exp_scale=0.1)
+    ts_data = t.meta_training(task_params,
+                              arm_set,
+                              estim=init_estim,
+                              method='ccipca',
+                              decision_making='ts',
+                              dim_known=False,
+                              exp_scale=0.1)
+    ipca_dimunknown_data = t.meta_training(task_params,
+                                           arm_set,
+                                           estim=init_estim,
+                                           method='ccipca',
+                                           exp_scale=0.1,
+                                           dim_known=False)
     linucb_data = t.projected_training(task_params[-1],
                                        arm_set,
                                        estim=init_estim,
                                        exp_scale=0.1)
-    # thomps_data = t.projected_training(task_params[-1],
-    #                                    arm_set,
-    #                                    estim=init_estim,
-    #                                    exp_scale=0.1,
-    #                                    decision_making='ts')
+    thomps_data = t.projected_training(task_params[-1],
+                                       arm_set,
+                                       estim=init_estim,
+                                       exp_scale=0.1,
+                                       decision_making='ts')
     ideal_data = t.projected_training(task_params[-1],
                                       arm_set,
                                       proj_mat=real_proj,
@@ -68,26 +68,26 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
     e.multiple_regret_plots([linucb_data[0]],
                             [linucb_data[1]],
                             plot_label="LinUCB")
-    # e.multiple_regret_plots([thomps_data[0]],
-    #                         [thomps_data[1]],
-    #                         plot_label="Thompson Sampling")
+    e.multiple_regret_plots([thomps_data[0]],
+                            [thomps_data[1]],
+                            plot_label="Thompson Sampling")
     e.multiple_regret_plots([ideal_data[0]],
                             [ideal_data[1]],
                             plot_label="Real Projection LinUCB")
-    e.multiple_regret_plots([high_varianca_data[0]],
-                            [high_varianca_data[1]],
-                            plot_label="High Variance Solution")
-    e.multiple_regret_plots([high_bias_data[0]],
-                            [high_bias_data[1]],
-                            plot_label="High Bias Solution",
-                            do_plot=True)
-    # e.multiple_regret_plots([ts_data[0]],
-    #                         [ts_data[1]],
-    #                         plot_label="Projected Thompson Sampling")
-    # e.multiple_regret_plots([ipca_dimknown_data[0]],
-    #                         [ipca_dimknown_data[1]],
-    #                         plot_label="Projected LinUCB Rank known",
+    # e.multiple_regret_plots([high_varianca_data[0]],
+    #                         [high_varianca_data[1]],
+    #                         plot_label="High Variance Solution")
+    # e.multiple_regret_plots([high_bias_data[0]],
+    #                         [high_bias_data[1]],
+    #                         plot_label="High Bias Solution",
     #                         do_plot=True)
+    e.multiple_regret_plots([ts_data[0]],
+                            [ts_data[1]],
+                            plot_label="Projected Thompson Sampling")
+    e.multiple_regret_plots([ipca_dimunknown_data[0]],
+                            [ipca_dimunknown_data[1]],
+                            plot_label="Projected LinUCB Rank unknown",
+                            do_plot=True)
 
 
 def multi_task_evaluation(task_params, arm_set, init_estim, proj_mat):

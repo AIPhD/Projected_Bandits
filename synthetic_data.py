@@ -20,7 +20,7 @@ class TaskData:
         self.rank = rank
         self.subspace_projection, ortho_mat = self.projection_matrix()
         # print(self.subspace_projection)
-        self.red_projection = self.reduced_projection(ortho_mat)
+        # self.red_projection = self.reduced_projection(ortho_mat)
         self.theta_opt = np.abs(np.random.rand(task_no, dimension))
         self.theta_opt = self.subspace_projection.dot(self.theta_opt.T).T
         self.off_set = np.dot(np.identity(dimension) - self.subspace_projection,
@@ -43,13 +43,13 @@ class TaskData:
         return sub_proj, ortho_mat
 
 
-    def reduced_projection(self, ortho_mat):
-        '''Generate lower rank projection matrix based on a given projection.'''
-        if self.rank != 0:
-            ortho_mat[:, -(self.rank + 1):] = c.KAPPA * np.ones((self.dimension, self.rank + 1))
+    # def reduced_projection(self, ortho_mat):
+    #     '''Generate lower rank projection matrix based on a given projection.'''
+    #     if self.rank != 0:
+    #         ortho_mat[:, -(self.rank + 1):] = c.KAPPA * np.ones((self.dimension, self.rank + 1))
 
-        red_proj = ortho_mat.dot(ortho_mat.T)
-        return red_proj
+    #     red_proj = ortho_mat.dot(ortho_mat.T)
+    #     return red_proj
 
 # TEST_CONTEXT = TaskData()
 # TEST_CONTEXT.projection_matrix(2)
