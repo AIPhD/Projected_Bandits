@@ -28,7 +28,7 @@ def ts_function(x_instances,
                 theta_t):
     '''Function handling the thompson sampling with shared subspaces.'''
     epsilon = 1
-    uncertainty_scale = 0.005 * c.SIGMA**2 * 24/epsilon * c.DIMENSION * np.log(1/c.DELTA)
+    uncertainty_scale = 0.001 * c.SIGMA**2 * 24/epsilon * c.DIMENSION * np.log(1/c.DELTA)
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
 
     for i in np.arange(len(a_inv)):
