@@ -48,6 +48,12 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
                                            method='ccipca',
                                            exp_scale=0.1,
                                            dim_known=False)
+    cella_data = t.meta_training(task_params,
+                                 arm_set,
+                                 estim=init_estim,
+                                 method='full_dimension',
+                                 exp_scale=0.1,
+                                 dim_known=False)
     linucb_data = t.projected_training(task_params[-1],
                                        arm_set,
                                        estim=init_estim,
@@ -71,9 +77,12 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
     e.multiple_regret_plots([thomps_data[0]],
                             [thomps_data[1]],
                             plot_label="Thompson Sampling")
+    e.multiple_regret_plots([cella_data[0]],
+                            [cella_data[1]],
+                            plot_label="Cella et al., 2020")
     e.multiple_regret_plots([ideal_data[0]],
                             [ideal_data[1]],
-                            plot_label="Real Projection LinUCB")
+                            plot_label="Oracle Projection")
     # e.multiple_regret_plots([high_varianca_data[0]],
     #                         [high_varianca_data[1]],
     #                         plot_label="High Variance Solution")
@@ -86,7 +95,7 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
                             plot_label="Projected Thompson Sampling")
     e.multiple_regret_plots([ipca_dimunknown_data[0]],
                             [ipca_dimunknown_data[1]],
-                            plot_label="Projected LinUCB Rank unknown",
+                            plot_label="Projected LinUCB",
                             do_plot=True)
 
 
