@@ -156,13 +156,16 @@ def projected_training(theta_opt,
 
     theta_estim = estim/np.sqrt(np.dot(estim, estim))
     theta_estim = np.tile(theta_estim, (repeats, 1))
+    theta_estim_p = np.tile(theta_estim, (repeats, 1))
     target_data = target_context
     theta_target = np.tile(theta_opt, (repeats, 1))
     gamma_scalar = np.tile(c.GAMMA, (repeats, 1))
     no_pulls = np.zeros((repeats, c.CONTEXT_SIZE))
     rewards = np.zeros((repeats, c.EPOCHS))
-    a_matrix = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
-    a_inv = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
+    a_matrix_p = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
+    a_inv_p = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
+    a_matrix = np.tile(c.LAMB_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
+    a_inv = np.tile(1/c.LAMB_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
     inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - proj_mat
 
     for i in range(0, c.REPEATS):
@@ -170,9 +173,10 @@ def projected_training(theta_opt,
         a_inv[i] = np.linalg.inv(c.LAMB_1 * np.identity(c.DIMENSION) -
                                  (c.LAMB_1 - c.LAMB_2) * proj_mat[i])
 
-    b_vector = np.tile(np.zeros(c.DIMENSION), (repeats, 1)) + c.LAMB_1 * np.einsum('ijk,ik->ij',
-                                                                                   inv_proj,
-                                                                                   off_set)
+    b_vector_p = np.tile(np.zeros(c.DIMENSION), (repeats, 1)) + c.LAMB_1 * np.einsum('ijk,ik->ij',
+                                                                                     inv_proj,
+                                                                                     off_set)
+    b_vector = np.tile(np.zeros(c.DIMENSION), (repeats, 1))
     regret_evol = np.zeros((repeats, c.EPOCHS))
     x_history = []
     index_list = []
@@ -181,14 +185,14 @@ def projected_training(theta_opt,
 
         if decision_making == 'ucb':
             index = np.argmax(ucb_function(target_data,
-                                           a_inv,
-                                           theta_estim,
+                                           a_inv_p,
+                                           theta_estim_p,
                                            gamma_scalar,
                                            expl_scale=exp_scale), axis=1)
         elif decision_making == 'ts':
             index = np.argmax(ts_function(target_data,
-                                          a_inv,
-                                          theta_estim,
+                                          a_inv_p,
+                                          theta_estim_p,
                                           off_set,
                                           proj_mat), axis=1)
 
@@ -201,7 +205,21 @@ def projected_training(theta_opt,
         r_real = np.einsum('ij,ij->i', theta_target, instance) + noise
         rewards[:, i] = r_real
         # y_t = np.einsum('lij,ij->li', np.asarray(x_history), theta_estim).T
+        a_matrix_p += np.einsum('ij,ik->ijk', instance, instance)
         a_matrix += np.einsum('ij,ik->ijk', instance, instance)
+        a_inv_p -= np.einsum('ijk,ikl->ijl',
+                             a_inv_p,
+                             np.einsum('ijk,ikl->ijl',
+                                       np.einsum('ij,ik->ijk',
+                                                 instance,
+                                                 instance),
+                                       a_inv_p))/(1 + np.einsum('ij,ij->i',
+                                                                instance,
+                                                                np.einsum('ijk,ik->ij',
+                                                                          a_inv_p,
+                                                                          instance)))[:,
+                                                                                      np.newaxis,
+                                                                                      np.newaxis]
         a_inv -= np.einsum('ijk,ikl->ijl',
                            a_inv,
                            np.einsum('ijk,ikl->ijl',
@@ -215,7 +233,9 @@ def projected_training(theta_opt,
                                                                       instance)))[:,
                                                                                   np.newaxis,
                                                                                   np.newaxis]
+        b_vector_p += r_real[:, np.newaxis] * instance
         b_vector += r_real[:, np.newaxis] * instance
+        theta_estim_p = np.einsum('ijk,ik->ij', a_inv_p, b_vector_p)
         theta_estim = np.einsum('ijk,ik->ij', a_inv, b_vector)
         # gamma_scalar = np.sqrt(np.max(np.abs(rewards[:, :i + 1] - y_t[:, :i + 1])/
         #                               np.sqrt(np.einsum('lij,lij->li',
