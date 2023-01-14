@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import config as c
-matplotlib.use('TKAgg')
+matplotlib.use('TkAgg')
 
 font  = {
     'size' : 14

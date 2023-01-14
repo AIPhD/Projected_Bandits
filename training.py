@@ -5,7 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import normalize
 import config as c
-matplotlib.use('TKAgg')
+matplotlib.use('TkAgg')
 
 
 def ucb_function(x_instances,
@@ -28,7 +28,7 @@ def ts_function(x_instances,
                 theta_t):
     '''Function handling the thompson sampling with shared subspaces.'''
     epsilon = 1
-    uncertainty_scale = 0.001 * c.SIGMA**2 * 24/epsilon * c.DIMENSION * np.log(1/c.DELTA)
+    uncertainty_scale = 0.003 * c.SIGMA**2 * 24/epsilon * c.DIMENSION * np.log(1/c.DELTA)
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
 
     for i in np.arange(len(a_inv)):
@@ -112,7 +112,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
 
-            if eig_v[i][j] < 0.02:
+            if eig_v[i][j] < 0.01:
                 dim_align_counter[i] += 1
 
     for i in np.arange(c.REPEATS):
@@ -146,7 +146,6 @@ def projected_training(theta_opt,
     theta_estim = estim/np.sqrt(np.dot(estim, estim))
     theta_estim = np.tile(theta_estim, (repeats, 1))
     theta_estim_p = np.tile(estim/np.sqrt(np.dot(estim, estim)), (repeats, 1))
-    target_data = target_context
     theta_target = np.tile(theta_opt, (repeats, 1))
     gamma_scalar = np.tile(c.GAMMA, (repeats, 1))
     no_pulls = np.zeros((repeats, c.CONTEXT_SIZE))
@@ -171,6 +170,9 @@ def projected_training(theta_opt,
     index_list = []
 
     for i in range(0, c.EPOCHS):
+
+        arm_ind = np.random.randint(c.CONTEXT_SIZE, size=c.ARM_SET)
+        target_data = target_context[arm_ind]
 
         if decision_making == 'ucb':
             index = np.argmax(ucb_function(target_data,
@@ -262,7 +264,7 @@ def meta_training(theta_opt_list,
                   estim=np.abs(np.random.uniform(size=c.DIMENSION)),
                   method='ccipca',
                   decision_making='ucb',
-                  high_bias=False,
+                  high_bias=True,
                   exp_scale=1,
                   dim_known=False):
     '''Meta learning algorithm updating affine subspace after each training.'''
