@@ -264,7 +264,7 @@ def meta_training(theta_opt_list,
                   estim=np.abs(np.random.uniform(size=c.DIMENSION)),
                   method='ccipca',
                   decision_making='ucb',
-                  high_bias=True,
+                  high_bias=False,
                   exp_scale=1,
                   dim_known=False):
     '''Meta learning algorithm updating affine subspace after each training.'''
