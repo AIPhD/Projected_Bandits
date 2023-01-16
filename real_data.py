@@ -56,7 +56,7 @@ def bandit_rewards(user_data, rating_data, movie_data):
             continue
 
         reward_data[int(rating_data[k][0])-1][int(rating_data[k][1])-1] = int(rating_data[k][2])
-    return reward_data
+    return reward_data/5
 
 
 def extract_context_for_users(user_index, context_data, rating_data):

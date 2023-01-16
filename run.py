@@ -3,6 +3,8 @@ import synthetic_data as sd
 import config as c
 import training as t
 import evaluation as e
+import real_data as rd
+import real_training as rt
 
 
 def main():
@@ -16,8 +18,103 @@ def main():
     proj_mat = np.tile(proj_mat, (c.REPEATS, 1, 1))
     init_estim = np.zeros(c.DIMENSION) # np.abs(np.random.uniform(size=c.DIMENSION))
 
-    meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
+    filter_data = [
+                   ['F', 18, '0', True],
+                   ['F', 35, '12', True],
+                   ['F', 25, '4', True],
+                   ['F', 35, '6', True],
+                   ['F', 35, '9', True],
+                   ['F', 35, '11'],
+                   ['F', 35, '19', True],
+                   ['F', 45, '15', True],
+                   ['M', 18, '0', True],
+                   ['M', 35, '2', True],
+                   ['M', 35, '3', True],
+                   ['M', 35, '15', True],
+                   ['M', 35, '17', True],
+                   ['M', 45, '3', True],
+                   ['M', 45, '20', True],
+                   ['M', 56, '13', True]
+                   ]
+
+    for filt in filter_data:
+        real_data_comparison(gender=filt[0], age=filt[1], prof=filt[2])
+
+    # meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
     # multi_task_evaluation(task_params, arm_set, init_estim, proj_mat)
+
+
+def real_data_comparison(gender=None,
+                         age=None,
+                         prof=None,
+                         context=rd.context_data_set,
+                         rewards=rd.reward_data_set):
+    '''Compares multiple algorithms on real data'''
+
+    dimension = len(context[0])
+    filtered_users = rd.filter_users(np.asarray(rd.user_data_set),
+                                     gender=gender,
+                                     age=age,
+                                     prof=prof)
+    filtered_user_index = np.asarray([int(i) for i in filtered_users[:, 0]]) - 1
+    real_target, real_rewards = rd.extract_context_for_users(filtered_user_index[-1],
+                                                             context,
+                                                             rewards)
+    proj_mat=np.tile(np.identity(dimension),(1,1,1))
+    off_set=np.zeros((1, dimension))
+    estim=np.zeros(dimension)
+
+    ts_data = rt.real_meta_training(filtered_user_index,
+                                    context,
+                                    rewards,
+                                    dimension,
+                                    method='ccipca',
+                                    decision_making='ts',
+                                    exp_scale=0.1)
+    ipca_dimunknown_data = rt.real_meta_training(filtered_user_index,
+                                                 context,
+                                                 rewards,
+                                                 dimension,
+                                                 method='ccipca',
+                                                 exp_scale=0.1)
+    cella_data = rt.real_meta_training(filtered_user_index,
+                                       context,
+                                       rewards,
+                                       dimension,
+                                       method='full_dimension',
+                                       exp_scale=0.1)
+    linucb_data = rt.real_meta_training(filtered_user_index,
+                                        context,
+                                        rewards,
+                                        dimension,
+                                        method='classic_learning',
+                                        exp_scale=0.1)
+    thomps_data = rt.real_meta_training(filtered_user_index,
+                                        context,
+                                        rewards,
+                                        dimension,
+                                        method="classic_learning",
+                                        exp_scale=0.1,
+                                        decision_making='ts')
+
+    e.multiple_regret_plots([linucb_data[0]],
+                            [linucb_data[1]],
+                            plot_label="LinUCB")
+    e.multiple_regret_plots([thomps_data[0]],
+                            [thomps_data[1]],
+                            plot_label="Thompson Sampling")
+    e.multiple_regret_plots([cella_data[0]],
+                            [cella_data[1]],
+                            plot_label="Cella et al., 2020")
+    e.multiple_regret_plots([ts_data[0]],
+                            [ts_data[1]],
+                            plot_label="Projected Thompson Sampling")
+    e.multiple_regret_plots([ipca_dimunknown_data[0]],
+                            [ipca_dimunknown_data[1]],
+                            plot_label="Projected LinUCB",
+                            directory="real_data_experiments",
+                            plotsuffix=f'real_regret_comparison_{gender}_{age}_{prof}',
+                            do_plot=True)
 
 
 def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_set):

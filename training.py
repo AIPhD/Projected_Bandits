@@ -27,8 +27,8 @@ def ts_function(x_instances,
                 a_inv,
                 theta_t):
     '''Function handling the thompson sampling with shared subspaces.'''
-    epsilon = 1
-    uncertainty_scale = 0.003 * c.SIGMA**2 * 24/epsilon * c.DIMENSION * np.log(1/c.DELTA)
+    epsilon = 0.9
+    uncertainty_scale = 0.0005 * c.SIGMA**2 * 96/epsilon * c.DIMENSION * np.log(1/c.DELTA)
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
 
     for i in np.arange(len(a_inv)):
@@ -73,7 +73,9 @@ def online_pca(theta_data, u_proj=None, learning_rate=1, momentum_scale=0.99):
 
 def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
     '''Covariance free strategy to solve online pca, without relying on hyper parameters.'''
-    dim_align_counter = np.zeros(c.REPEATS)
+    dimension = len(theta_data[0][0])
+    repeats = len(theta_data[0])
+    dim_align_counter = np.zeros(repeats)
     len_t = len(theta_data)
     mean_theta = np.sum(theta_data, axis=0)/len_t
     gamma_theta = 1/len_t * np.sum(np.einsum('mik,mil->mikl',
@@ -81,16 +83,16 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
                                              theta_data - mean_theta), axis=0)
     if v_proj is None:
         eig_v, u_proj = np.linalg.eigh(gamma_theta)
-        v_proj = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
+        v_proj = np.zeros((repeats, dimension, dimension))
 
         for i in np.arange(len(u_proj)):
             v_proj[i] = eig_v[i] * u_proj[i]
 
     else:
-        x_proj = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
-        prod_x = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
+        x_proj = np.zeros((repeats, dimension, dimension))
+        prod_x = np.zeros((repeats, dimension, dimension))
 
-        for j in np.arange(c.REPEATS):
+        for j in np.arange(repeats):
             prod_x[j] = np.einsum('ik,ikm->im',
                                   theta_data[-1, :, :],
                                   u_proj)[j] * u_proj[j]
@@ -112,10 +114,10 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
 
-            if eig_v[i][j] < 0.1:
+            if eig_v[i][j] < 0.01:
                 dim_align_counter[i] += 1
 
-    for i in np.arange(c.REPEATS):
+    for i in np.arange(repeats):
 
         if dim_known:
             shared_dim = c.DIMENSION_ALIGN
@@ -125,7 +127,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
         u_proj[i] = normalize(v_proj[i], axis=0, norm='l2')
 
         for j in np.arange(shared_dim):
-            u_proj[i][:, np.where(arg_sorted_eig[i]==j)[0]]=np.zeros(c.DIMENSION)[np.newaxis].T
+            u_proj[i][:, np.where(arg_sorted_eig[i]==j)[0]]=np.zeros(dimension)[np.newaxis].T
 
     proj_mat = np.einsum('ikj,ilj->ikl', u_proj, u_proj)
     print(dim_align_counter)

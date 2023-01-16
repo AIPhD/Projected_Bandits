@@ -2,6 +2,7 @@
 *.d
 *.png
 *.pdf
+*.dat
 
 # Compiled Object files
 *.slo

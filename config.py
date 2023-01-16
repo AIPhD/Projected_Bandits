@@ -1,6 +1,6 @@
 import numpy as np
 
-DIMENSION = 30
+DIMENSION = 18
 DIMENSION_ALIGN = 12
 CONTEXT_SIZE = 1000
 ARM_SET = 19
@@ -8,8 +8,8 @@ NO_TASK = 60
 EPSILON = 1
 SIGMA = 1/np.sqrt(2 * np.pi)
 KAPPA = 0.1
-LAMB_1 = 10
-LAMB_2 = 1
+LAMB_1 = 1
+LAMB_2 = 0.1
 DELTA = 0.1 # np.exp(-2 * LAMB_2)
 EPOCHS = 250
 REPEATS = 10

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import config as c
-matplotlib.use('TkAgg')
+matplotlib.use('TKAgg')
 
 font  = {
     'size' : 14
@@ -93,5 +93,5 @@ def multiple_regret_plots(regrets,
                     format= "pdf",
                     bbox_inches='tight',
                     pad_inches=0)
-        plt.show()
+        # plt.show()
         plt.close()
