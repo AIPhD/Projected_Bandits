@@ -112,7 +112,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
 
-            if eig_v[i][j] < 0.01:
+            if eig_v[i][j] < 0.1:
                 dim_align_counter[i] += 1
 
     for i in np.arange(c.REPEATS):
@@ -136,16 +136,15 @@ def projected_training(theta_opt,
                        target_context,
                        proj_mat=np.tile(np.identity(c.DIMENSION),(c.REPEATS,1,1)),
                        off_set=np.zeros((c.REPEATS, c.DIMENSION)),
-                       estim=np.abs(np.random.uniform(size=c.DIMENSION)),
+                       estim=np.zeros(c.DIMENSION),
                        repeats=c.REPEATS,
                        decision_making='ucb',
                        arms_pulled_plot=False,
                        exp_scale=1):
     '''Training algorithm based on linUCB and a biased regularization constrained.'''
 
-    theta_estim = estim/np.sqrt(np.dot(estim, estim))
-    theta_estim = np.tile(theta_estim, (repeats, 1))
-    theta_estim_p = np.tile(estim/np.sqrt(np.dot(estim, estim)), (repeats, 1))
+    theta_estim = np.tile(estim, (repeats, 1))
+    theta_estim_p = np.tile(estim, (repeats, 1))
     theta_target = np.tile(theta_opt, (repeats, 1))
     gamma_scalar = np.tile(c.GAMMA, (repeats, 1))
     no_pulls = np.zeros((repeats, c.CONTEXT_SIZE))

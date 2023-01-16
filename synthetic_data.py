@@ -21,8 +21,8 @@ class TaskData:
         self.subspace_projection, ortho_mat = self.projection_matrix()
         # print(self.subspace_projection)
         # self.red_projection = self.reduced_projection(ortho_mat)
-        self.theta_opt = np.random.multivariate_normal(mean=np.zeros(dimension),
-                                                       cov=np.identity(dimension),
+        self.theta_opt = 2 * np.random.multivariate_normal(mean=np.zeros(dimension),
+                                                       cov=2*np.identity(dimension),
                                                        size=task_no)
         self.theta_opt = self.subspace_projection.dot(self.theta_opt.T).T
         self.off_set = np.dot(np.identity(dimension) - self.subspace_projection,

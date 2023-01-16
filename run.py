@@ -14,7 +14,7 @@ def main():
     proj_mat = multi_tasks.subspace_projection
     off_set = np.tile(multi_tasks.off_set, (c.REPEATS, 1))
     proj_mat = np.tile(proj_mat, (c.REPEATS, 1, 1))
-    init_estim = np.abs(np.random.uniform(size=c.DIMENSION))
+    init_estim = np.zeros(c.DIMENSION) # np.abs(np.random.uniform(size=c.DIMENSION))
 
     meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
     # multi_task_evaluation(task_params, arm_set, init_estim, proj_mat)
@@ -41,34 +41,34 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
                               method='ccipca',
                               decision_making='ts',
                               dim_known=False,
-                              exp_scale=0.1)
+                              exp_scale=1)
     ipca_dimunknown_data = t.meta_training(task_params,
                                            arm_set,
                                            estim=init_estim,
                                            method='ccipca',
-                                           exp_scale=0.1,
+                                           exp_scale=1,
                                            dim_known=False)
     cella_data = t.meta_training(task_params,
                                  arm_set,
                                  estim=init_estim,
                                  method='full_dimension',
-                                 exp_scale=0.1,
+                                 exp_scale=1,
                                  dim_known=False)
     linucb_data = t.projected_training(task_params[-1],
                                        arm_set,
                                        estim=init_estim,
-                                       exp_scale=0.1)
+                                       exp_scale=1)
     thomps_data = t.projected_training(task_params[-1],
                                        arm_set,
                                        estim=init_estim,
-                                       exp_scale=0.1,
+                                       exp_scale=1,
                                        decision_making='ts')
     ideal_data = t.projected_training(task_params[-1],
                                       arm_set,
                                       proj_mat=real_proj,
                                       off_set=off_set,
                                       estim=init_estim,
-                                      exp_scale=0.1,
+                                      exp_scale=1,
                                       decision_making='ucb')
 
     e.multiple_regret_plots([linucb_data[0]],
