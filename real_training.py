@@ -28,7 +28,7 @@ def real_projected_training(target_context,
                                     (c.LAMB_1 - c.LAMB_2) * proj_mat[0]), (repeats, 1, 1))
     a_matrix = np.tile(c.LAMB_2 * np.identity(dimension), (repeats, 1, 1))
     a_inv = np.tile(1/c.LAMB_2 * np.identity(dimension), (repeats, 1, 1))
-    inv_proj = np.tile(np.identity(dimension), (c.REPEATS, 1, 1)) - proj_mat
+    inv_proj = np.tile(np.identity(dimension), (repeats, 1, 1)) - proj_mat
 
     b_vector_p = np.tile(np.zeros(dimension), (repeats, 1)) + c.LAMB_1 * np.einsum('ijk,ik->ij',
                                                                                      inv_proj,
@@ -41,24 +41,25 @@ def real_projected_training(target_context,
     for i in range(0, c.EPOCHS):
 
         arm_ind = np.random.randint(len(target_context), size=c.ARM_SET)
-        target_data = target_context[arm_ind]
-        reward_data = reward_data_complete[arm_ind]
+        target_data = target_context# [arm_ind]
+        reward_data = reward_data_complete# [arm_ind]
 
         if decision_making == 'ucb':
             index = np.argmax(t.ucb_function(target_data,
                                              a_inv_p,
                                              theta_estim_p,
                                              gamma_scalar,
-                                             expl_scale=exp_scale), axis=1)[0]
+                                             expl_scale=exp_scale), axis=1)
         elif decision_making == 'ts':
             index = np.argmax(t.ts_function(target_data,
                                             a_inv_p,
-                                            theta_estim_p), axis=1)[0]
+                                            theta_estim_p), axis=1)
 
-        instance = target_data[[index]]
-        index_list.append([index])
+        selected_item = np.random.randint(len(index))
+        instance = target_data[[index[selected_item]]]
+        index_list.append([index[selected_item]])
         x_history.append(instance)
-        r_real = reward_data[[index]]
+        r_real = reward_data[[index[selected_item]]]
         rewards[:, i] = r_real
         # y_t = np.einsum('lij,ij->li', np.asarray(x_history), theta_estim).T
         a_matrix_p += np.einsum('ij,ik->ijk', instance, instance)
@@ -100,9 +101,9 @@ def real_projected_training(target_context,
         #                               axis=1) + np.einsum('ij,ij->i',
         #                                                   y_t - rewards[:, :i+1],
         #                                                   y_t - rewards[:, :i+1]))[:, np.newaxis]
-        gamma_scalar = np.asarray([np.sqrt(c.LAMB_2) + c.LAMB_1/np.sqrt(c.LAMB_2) * c.KAPPA +
+        gamma_scalar = np.asarray([2 +
                                    np.sqrt(np.log(np.linalg.det(a_matrix_p)/
-                                                      (np.linalg.det(c.LAMB_2 * inv_proj + c.LAMB_1 * proj_mat) * c.DELTA**2)))]).T
+                                                      (np.linalg.det(c.LAMB_2 * proj_mat + c.LAMB_1 * inv_proj) * c.DELTA**2)))]).T
         inst_regret = [np.max(reward_data)] - r_real
         regret_evol[:, i] = inst_regret
         # regr = inst_regret
@@ -127,12 +128,13 @@ def real_meta_training(filtered_user_index,
                        exp_scale=1):
     '''Meta learning algorithm updating affine subspace after each training.'''
     theta_array = []
-    i = 0
+    j = 0
     learned_proj = np.tile(np.identity(dimension), (repeats, 1, 1))
     off_set = np.zeros((repeats, dimension))
     u_proj = None
     v_proj = None
     mean_regret_evol = np.zeros(c.EPOCHS)
+    regret_evol = []
 
     if high_bias:
         a_glob = np.zeros((repeats, dimension, dimension))
@@ -151,8 +153,10 @@ def real_meta_training(filtered_user_index,
                                              dimension=dimension,
                                              exp_scale=exp_scale,
                                              decision_making=decision_making)
+        
+        # if train_data[0][-1] < 50:
         theta_array.append(train_data[2])
-        mean_regret_evol += train_data[0]
+            # j += 1
 
         if high_bias:
             a_glob += train_data[3]
@@ -165,7 +169,7 @@ def real_meta_training(filtered_user_index,
         else:
             theta_mean = np.sum(np.asarray(theta_array), axis=0)/len(theta_array)
 
-        if i > 25:
+        if i > 50:
             if method == 'sga':
                 learned_proj, u_proj = t.online_pca(np.asarray(theta_array), u_proj)
             elif method == 'ccipca':
@@ -182,6 +186,18 @@ def real_meta_training(filtered_user_index,
                 learned_proj = np.tile(np.identity(dimension), (repeats, 1, 1))
                 inv_proj =  np.zeros((repeats, dimension, dimension))
                 off_set = np.zeros((repeats, dimension))
-    mean_proj = np.sum(learned_proj, axis=0)/len(learned_proj)
 
-    return [mean_regret_evol/len(filtered_user_index), train_data[1]]
+            # if train_data[0][-1] < 50:
+            j += 1
+            regret_evol.append(train_data[0])
+            mean_regret_evol += train_data[0]
+    
+    if j > 0:
+        std_dev= np.sqrt(np.sum((mean_regret_evol/j - np.asarray(regret_evol))**2, axis=0)/j)
+    else:
+        std_dev= np.zeros(c.DIMENSION)
+
+    mean_proj = np.sum(learned_proj, axis=0)/(len(learned_proj))
+    
+
+    return [mean_regret_evol/j, std_dev]
