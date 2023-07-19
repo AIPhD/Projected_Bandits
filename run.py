@@ -58,9 +58,10 @@ def main():
     #     print(filt[0]+str(filt[1]))
     #     real_data_comparison(gender=filt[0], age=filt[1], prof=filt[2])
 
-    # for i in np.arange(21):
-    #     real_data_comparison(gender=None, age=None, prof=str(i))
-    meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
+    for i in range(9,21):
+        real_data_comparison(gender=None, age=None, prof=str(i))
+    # real_data_comparison(gender=None, age=None, prof=str(12))
+    # meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
     # multi_task_evaluation(task_params, arm_set, init_estim, proj_mat)
 
 

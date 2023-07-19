@@ -28,7 +28,7 @@ def ts_function(x_instances,
                 theta_t):
     '''Function handling the thompson sampling with shared subspaces.'''
     epsilon = 1
-    uncertainty_scale = 0.0001 * c.SIGMA**2 * 96/epsilon * c.DIMENSION * np.log(1/c.DELTA)
+    uncertainty_scale = 0.00001 * c.SIGMA**2 * 96/epsilon * c.DIMENSION * np.log(1/c.DELTA)
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
 
     for i in np.arange(len(a_inv)):
@@ -114,7 +114,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False):
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
 
-            if eig_v[i][j] < 0.1:
+            if eig_v[i][j] < 0.05:
                 dim_align_counter[i] += 1
 
     for i in np.arange(repeats):
@@ -293,7 +293,9 @@ def projected_training(theta_opt,
         #                                                   y_t - rewards[:, :i+1]))[:, np.newaxis]
         gamma_scalar = np.asarray([np.sqrt(c.LAMB_2) + c.LAMB_1/np.sqrt(c.LAMB_2) * c.KAPPA +
                                    np.sqrt(1 * np.log(np.linalg.det(a_matrix_p)/
-                                                      (np.linalg.det(c.LAMB_2 * proj_mat + c.LAMB_1 * inv_proj) * c.DELTA**2)))]).T
+                                                      (np.linalg.det(c.LAMB_2 * proj_mat +
+                                                                     c.LAMB_1 * inv_proj) *
+                                                                     c.DELTA**2)))]).T
         no_pulls[np.arange(repeats), index] += 1
         inst_regret = np.einsum('ij,ij->i', theta_target, opt_instance) - np.einsum('ij,ij->i',
                                                                                     theta_target,
@@ -402,7 +404,8 @@ def meta_training(theta_opt_list,
                 g_sigma = 1/(i-1) * np.sum(np.asarray(a_inv_array), axis=0)
                 sigma_n = 1/(i-2) * np.sum(np.einsum('tij,tik->tijk',
                                                      np.asarray(theta_array) - theta_mean,
-                                                     np.asarray(theta_array) - theta_mean), axis=0) - g_sigma
+                                                     np.asarray(theta_array) - theta_mean),
+                                           axis=0) - g_sigma
                 c_w = 50 * (2/(c.DIMENSION)+ 1)
                 meta_cov = sigma_n + c_w * np.sqrt((5 * c.DIMENSION +
                                                     2 * np.log(c.DIMENSION *

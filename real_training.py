@@ -3,9 +3,6 @@ import config as c
 import real_data as rd
 import training as t
 
-all_targets = rd.context_data_set
-all_rewards = rd.reward_data_set
-
 
 def real_projected_training(target_context,
                             reward_data_complete,
@@ -103,7 +100,9 @@ def real_projected_training(target_context,
         #                                                   y_t - rewards[:, :i+1]))[:, np.newaxis]
         gamma_scalar = np.asarray([2 +
                                    np.sqrt(np.log(np.linalg.det(a_matrix_p)/
-                                                      (np.linalg.det(c.LAMB_2 * proj_mat + c.LAMB_1 * inv_proj) * c.DELTA**2)))]).T
+                                                      (np.linalg.det(c.LAMB_2 * proj_mat +
+                                                                     c.LAMB_1 * inv_proj) *
+                                                                     c.DELTA**2)))]).T
         inst_regret = [np.max(reward_data)] - r_real
         regret_evol[:, i] = inst_regret
         # regr = inst_regret
@@ -153,7 +152,7 @@ def real_meta_training(filtered_user_index,
                                              dimension=dimension,
                                              exp_scale=exp_scale,
                                              decision_making=decision_making)
-        
+
         # if train_data[0][-1] < 50:
         theta_array.append(train_data[2])
             # j += 1
@@ -191,13 +190,13 @@ def real_meta_training(filtered_user_index,
             j += 1
             regret_evol.append(train_data[0])
             mean_regret_evol += train_data[0]
-    
+
     if j > 0:
         std_dev= np.sqrt(np.sum((mean_regret_evol/j - np.asarray(regret_evol))**2, axis=0)/j)
     else:
         std_dev= np.zeros(c.DIMENSION)
 
     mean_proj = np.sum(learned_proj, axis=0)/(len(learned_proj))
-    
+
 
     return [mean_regret_evol/j, std_dev]
