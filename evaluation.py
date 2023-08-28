@@ -26,18 +26,22 @@ def multiple_regret_plots(regrets,
                           plotsuffix='regret_comparison',
                           directory='test',
                           do_plot=False,
-                          y_label='Regret'):
+                          y_label='Regret',
+                          x_label='Timestep',
+                          y_top_limit=None):
     '''Plot multiple regret evolutions for comparison.'''
 
     i = 0
-    plt.xlabel('Timestep')
+    plt.xlabel(x_label)
     plt.ylabel(y_label)
-    #plt.ylim(0, 150)
+    x_scale = np.cumsum(np.ones(len(regrets[0])))
+    if y_top_limit is not None:
+        plt.ylim(0, y_top_limit)
 
     if bethas is None:
         for regret in regrets:
             if errors is not None:
-                plt.errorbar(np.cumsum(np.ones(c.EPOCHS)),
+                plt.errorbar(x_scale,
                              regret,
                              yerr=errors[i],
                              label=plot_label,
@@ -93,5 +97,52 @@ def multiple_regret_plots(regrets,
                     format= "pdf",
                     bbox_inches='tight',
                     pad_inches=0)
-        # plt.show()
+        plt.show()
+        plt.close()
+
+
+def dimensional_regret_plots(regret,
+                             errors=None,
+                             plot_label=None,
+                             plotsuffix='dimensional_regret_comparison',
+                             directory='test',
+                             do_plot=False,
+                             y_label='Regret',
+                             y_top_limit=None):
+    '''Plot multiple regret evolutions for comparison.'''
+
+    i = 0
+    plt.xlabel('rank q')
+    plt.ylabel(y_label)
+    if y_top_limit is not None:
+        plt.ylim(0, y_top_limit)
+ 
+    x_scale = np.cumsum(np.ones(len(regret)))-1
+   
+    plt.errorbar(x_scale,
+                 regret,
+                 yerr=errors,
+                 label=plot_label,
+                 alpha=0.75,
+                 errorevery=2)
+    # plt.plot(np.arange(c.EPOCHS),
+    #          regret + errors[i],
+    #          alpha=0.25,
+    #          ls='--')
+    # plt.plot(np.arange(c.EPOCHS),
+    #          regret - errors[i],
+    #          alpha=0.25,
+    #          ls='--')
+
+
+    plt.legend()
+    plt.tight_layout()
+
+    if do_plot:
+        plt.savefig(f'{PLOT_DIR}{directory}/{plotsuffix}.pdf',
+                    dpi=800,
+                    format= "pdf",
+                    bbox_inches='tight',
+                    pad_inches=0)
+        plt.show()
         plt.close()

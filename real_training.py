@@ -57,7 +57,7 @@ def real_projected_training(target_context,
         index_list.append([index[selected_item]])
         x_history.append(instance)
         r_real = reward_data[[index[selected_item]]]
-        rewards[:, i] = r_real
+        rewards[:, i] = np.floor(r_real)
         # y_t = np.einsum('lij,ij->li', np.asarray(x_history), theta_estim).T
         a_matrix_p += np.einsum('ij,ik->ijk', instance, instance)
         a_matrix += np.einsum('ij,ik->ijk', instance, instance)
@@ -124,7 +124,9 @@ def real_meta_training(filtered_user_index,
                        decision_making='ucb',
                        repeats=1,
                        high_bias=False,
-                       exp_scale=1):
+                       exp_scale=1,
+                       dim_known=False,
+                       dim_set=None):
     '''Meta learning algorithm updating affine subspace after each training.'''
     theta_array = []
     j = 0
@@ -168,13 +170,15 @@ def real_meta_training(filtered_user_index,
         else:
             theta_mean = np.sum(np.asarray(theta_array), axis=0)/len(theta_array)
 
-        if i > 50:
+        if i > 100:
             if method == 'sga':
                 learned_proj, u_proj = t.online_pca(np.asarray(theta_array), u_proj)
             elif method == 'ccipca':
                 learned_proj, v_proj, u_proj = t.cc_ipca(np.asarray(theta_array),
                                                          v_proj,
-                                                         u_proj)
+                                                         u_proj,
+                                                         dim_known=dim_known,
+                                                         dim_set=dim_set)
                 inv_proj = np.tile(np.identity(dimension), (repeats, 1, 1)) - learned_proj
                 off_set = np.einsum('ijk,ik->ij', inv_proj, theta_mean)
             elif method == 'full_dimension':
