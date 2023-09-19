@@ -27,7 +27,7 @@ def multiple_regret_plots(regrets,
                           directory='test',
                           do_plot=False,
                           y_label='Regret',
-                          x_label='Timestep',
+                          x_label='Rounds',
                           y_top_limit=None):
     '''Plot multiple regret evolutions for comparison.'''
 

@@ -113,7 +113,7 @@ def real_projected_training(target_context,
 
 
 
-    return [mean_regret, regret_dev, theta_estim, a_matrix, b_vector]
+    return [mean_regret, regret_dev, theta_estim, a_matrix, b_vector, np.cumsum(regret_evol, axis=1)]
 
 
 def real_meta_training(filtered_user_index,
@@ -136,6 +136,7 @@ def real_meta_training(filtered_user_index,
     v_proj = None
     mean_regret_evol = np.zeros(c.EPOCHS)
     regret_evol = []
+    regret_meta_rounds_evolution = np.zeros((repeats, len(filtered_user_index)))
 
     if high_bias:
         a_glob = np.zeros((repeats, dimension, dimension))
@@ -154,6 +155,7 @@ def real_meta_training(filtered_user_index,
                                              dimension=dimension,
                                              exp_scale=exp_scale,
                                              decision_making=decision_making)
+        regret_meta_rounds_evolution[:, i] = train_data[5][:, -1]
 
         # if train_data[0][-1] < 50:
         theta_array.append(train_data[2])
@@ -200,7 +202,11 @@ def real_meta_training(filtered_user_index,
     else:
         std_dev= np.zeros(c.DIMENSION)
 
+    mean_meta_regret = np.cumsum(regret_meta_rounds_evolution,
+                                 axis=1).sum(axis=0)/len(regret_meta_rounds_evolution)
+    regret_meta_dev = np.sqrt(np.sum((mean_meta_regret - np.cumsum(regret_meta_rounds_evolution, axis=1))**2,
+                                     axis=0)/len(regret_meta_rounds_evolution))
     mean_proj = np.sum(learned_proj, axis=0)/(len(learned_proj))
 
 
-    return [mean_regret_evol/j, std_dev]
+    return [mean_regret_evol/j, std_dev, mean_meta_regret, regret_meta_dev]

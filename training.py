@@ -27,12 +27,12 @@ def ts_function(x_instances,
                 a_inv,
                 theta_t):
     '''Function handling the thompson sampling with shared subspaces.'''
-    epsilon = 0.99
-    uncertainty_scale = 0.0001 * c.SIGMA**2 * 96/epsilon * c.DIMENSION * np.log(1/c.DELTA)
+    epsilon = 0.1
+    uncertainty_scale = 0.0001 * c.SIGMA**2 * 96/epsilon * len(a_inv[0]) * np.log(1/c.DELTA)
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
 
     for i in np.arange(len(a_inv)):
-        cov_a = uncertainty_scale * a_inv[i]
+        cov_a = uncertainty_scale**2 * a_inv[i]
         if np.isnan(np.min(np.abs(cov_a))) or np.isinf(np.max(np.abs(cov_a))):
             print('Nan value in covariance')
         theta_tild[i] = np.random.multivariate_normal(theta_t[i], cov_a)
@@ -136,7 +136,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False, dim_set=c.DIM
     for i in np.arange(len(dim_align_counter)):
         for j in np.arange(len(eig_v[0])):
 
-            if eig_v[i][j] < 0.5:
+            if eig_v[i][j] < 0.1:
                 dim_align_counter[i] += 1
 
     # for i in np.arange(len(dim_align_counter)):

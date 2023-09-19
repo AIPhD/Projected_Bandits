@@ -62,10 +62,11 @@ def main():
     # for i in range(9,18):
     #     real_data_comparison(gender=None, age=None, prof=str(i))
     # real_data_comparison(gender='M', age=None, prof=None, y_top_limit= 40)
+    real_meta_learning_evaluation(gender='M', age=None, prof=None, max_tasks=400)
     # real_regret_per_dimension_eval(gender='M', age=None, prof=None, y_top_limit= 40)    
     # real_data_comparison(gender=None, age=None, prof=str(12))
     # regret_per_dimension_eval(task_params, arm_set, init_estim)
-    meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
+    # meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
     # multi_task_evaluation(task_params, arm_set, init_estim, proj_mat)
 
 
@@ -242,6 +243,78 @@ def real_regret_per_dimension_eval(gender=None,
                                y_top_limit=y_top_limit,
                                do_plot=True)
 
+
+def real_meta_learning_evaluation(gender=None,
+                                  age=None,
+                                  prof=None,
+                                  max_tasks=150,
+                                  context=rd.context_data_set,
+                                  rewards=rd.reward_data_set,
+                                  y_top_limit=None):
+    
+    dimension = len(context[0])
+    explore_scale = 0.1
+    filtered_users = rd.filter_users(np.asarray(rd.user_data_set),
+                                     gender=gender,
+                                     age=age,
+                                     prof=prof)
+    filtered_user_index = np.random.choice(np.asarray([int(i) for i in filtered_users[:, 0]]) - 1, size=max_tasks, replace=False)
+
+
+    ts_data = rt.real_meta_training(filtered_user_index,
+                                    context,
+                                    rewards,
+                                    dimension,
+                                    method='ccipca',
+                                    decision_making='ts',
+                                    exp_scale=explore_scale)
+    ipca_dimunknown_data = rt.real_meta_training(filtered_user_index,
+                                                 context,
+                                                 rewards,
+                                                 dimension,
+                                                 method='ccipca',
+                                                 exp_scale=explore_scale)
+    cella_data = rt.real_meta_training(filtered_user_index,
+                                       context,
+                                       rewards,
+                                       dimension,
+                                       method='full_dimension',
+                                       exp_scale=explore_scale)
+    linucb_data = rt.real_meta_training(filtered_user_index,
+                                        context,
+                                        rewards,
+                                        dimension,
+                                        method='classic_learning',
+                                        exp_scale=explore_scale)
+    thomps_data = rt.real_meta_training(filtered_user_index,
+                                        context,
+                                        rewards,
+                                        dimension,
+                                        method="classic_learning",
+                                        exp_scale=explore_scale,
+                                        decision_making='ts')
+
+
+    e.multiple_regret_plots([linucb_data[2]],
+                            [linucb_data[3]],
+                            plot_label="LinUCB")
+    e.multiple_regret_plots([thomps_data[2]],
+                            [thomps_data[3]],
+                            plot_label="Thompson Sampling")
+    e.multiple_regret_plots([cella_data[2]],
+                            [cella_data[3]],
+                            plot_label="Cella et al., 2020")
+    e.multiple_regret_plots([ts_data[2]],
+                            [ts_data[3]],
+                            plot_label="Projected Thompson Sampling")
+    e.multiple_regret_plots([ipca_dimunknown_data[2]],
+                            [ipca_dimunknown_data[3]],
+                            plot_label="Projected LinUCB",
+                            plotsuffix='real_meta_regret_comparison',
+                            y_label='Total regret over number of users',
+                            x_label='Number of users',
+                            do_plot=True)
+    
 
 def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_set):
     '''Evaluation of the meta learning task.'''

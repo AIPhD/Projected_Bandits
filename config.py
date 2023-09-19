@@ -8,10 +8,10 @@ NO_TASK = 400
 EPSILON = 1
 SIGMA = 1 # 1/np.sqrt(2 * np.pi)
 KAPPA = 0.01
-LAMB_1 = 10     # 5          # Parameters used for real data run 20 for synthetic experiments
-LAMB_2 = 1     # 0.1                                             1
+LAMB_1 = 5     # 5          # Parameters used for real data run 20 for synthetic experiments
+LAMB_2 = 0.1     # 0.1                                             1
 DELTA = 0.1     # np.exp(-2 * LAMB_2)
-EPOCHS = 100
+EPOCHS = 250
 REPEATS = 10
 
 try:
