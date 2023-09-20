@@ -107,7 +107,7 @@ def dimensional_regret_plots(regret,
                              plotsuffix='dimensional_regret_comparison',
                              directory='test',
                              do_plot=False,
-                             y_label='Regret',
+                             y_label='Total Expected Transfer Regret',
                              y_top_limit=None):
     '''Plot multiple regret evolutions for comparison.'''
 

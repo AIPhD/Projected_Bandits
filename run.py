@@ -61,11 +61,9 @@ def main():
 
     # for i in range(9,18):
     #     real_data_comparison(gender=None, age=None, prof=str(i))
-    # real_data_comparison(gender='M', age=None, prof=None, y_top_limit= 40)
-    real_meta_learning_evaluation(gender='M', age=None, prof=None, max_tasks=400)
-    # real_regret_per_dimension_eval(gender='M', age=None, prof=None, y_top_limit= 40)    
-    # real_data_comparison(gender=None, age=None, prof=str(12))
-    # regret_per_dimension_eval(task_params, arm_set, init_estim)
+    # real_data_comparison(gender='M', age=None, prof=None, max_tasks=400, y_top_limit= 40)
+    # real_regret_per_dimension_eval(gender='M', age=None, prof=None, y_top_limit=40)    
+    regret_per_dimension_eval(task_params, arm_set, init_estim)
     # meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
     # multi_task_evaluation(task_params, arm_set, init_estim, proj_mat)
 
@@ -103,12 +101,12 @@ def real_data_comparison(gender=None,
                                                  dimension,
                                                  method='ccipca',
                                                  exp_scale=explore_scale)
-    # cella_data = rt.real_meta_training(filtered_user_index,
-    #                                    context,
-    #                                    rewards,
-    #                                    dimension,
-    #                                    method='full_dimension',
-    #                                    exp_scale=explore_scale)
+    cella_data = rt.real_meta_training(filtered_user_index,
+                                       context,
+                                       rewards,
+                                       dimension,
+                                       method='full_dimension',
+                                       exp_scale=explore_scale)
     linucb_data = rt.real_meta_training(filtered_user_index,
                                         context,
                                         rewards,
@@ -131,9 +129,9 @@ def real_data_comparison(gender=None,
                             [thomps_data[1]],
                             plot_label="Thompson Sampling",
                             y_top_limit=y_top_limit)
-    # e.multiple_regret_plots([cella_data[0]],
-    #                         [cella_data[1]],
-    #                         plot_label="Cella et al., 2020")
+    e.multiple_regret_plots([cella_data[0]],
+                            [cella_data[1]],
+                            plot_label="Cella et al., 2020")
     e.multiple_regret_plots([ts_data[0]],
                             [ts_data[1]],
                             plot_label="Projected Thompson Sampling",
@@ -143,8 +141,30 @@ def real_data_comparison(gender=None,
                             plot_label="Projected LinUCB",
                             directory="real_data_experiments",
                             plotsuffix=f'real_regret_comparison_{gender}_{age}_{prof}',
+                            y_label="Expected Transfer Regret",
                             do_plot=True,
                             y_top_limit=y_top_limit)
+
+    e.multiple_regret_plots([linucb_data[2]],
+                            [linucb_data[3]],
+                            plot_label="LinUCB")
+    e.multiple_regret_plots([thomps_data[2]],
+                            [thomps_data[3]],
+                            plot_label="Thompson Sampling")
+    e.multiple_regret_plots([cella_data[2]],
+                            [cella_data[3]],
+                            plot_label="Cella et al., 2020")
+    e.multiple_regret_plots([ts_data[2]],
+                            [ts_data[3]],
+                            plot_label="Projected Thompson Sampling")
+    e.multiple_regret_plots([ipca_dimunknown_data[2]],
+                            [ipca_dimunknown_data[3]],
+                            plot_label="Projected LinUCB",
+                            directory="real_data_experiments",
+                            plotsuffix=f'real_meta_regret_comparison_{gender}',
+                            y_label='Total regret over number of users',
+                            x_label='Number of users',
+                            do_plot=True)
 
 
 def regret_per_dimension_eval(task_params, arm_set, init_estim):
@@ -154,7 +174,7 @@ def regret_per_dimension_eval(task_params, arm_set, init_estim):
     total_error_linucb_dimensional = np.zeros(c.DIMENSION+1)
     total_error_ts_dimensional = np.zeros(c.DIMENSION+1)
 
-    for d in np.arange(c.DIMENSION+1):
+    for d in np.arange(c.DIMENSION + 1):
         ts_data = t.meta_training(task_params,
                                   arm_set,
                                   estim=init_estim,
@@ -163,8 +183,8 @@ def regret_per_dimension_eval(task_params, arm_set, init_estim):
                                   dim_known=True,
                                   exp_scale=1,
                                   dim_set=d)
-        total_regret_ts_dimensional[d]= ts_data[0][-1]
-        total_error_ts_dimensional[d]= ts_data[1][-1]
+        total_regret_ts_dimensional[d]= ts_data[2][-1]
+        total_error_ts_dimensional[d]= ts_data[3][-1]
 
         linucb_data = t.meta_training(task_params,
                                       arm_set,
@@ -173,16 +193,18 @@ def regret_per_dimension_eval(task_params, arm_set, init_estim):
                                       exp_scale=1,
                                       dim_known=True,
                                       dim_set=d)
-        total_regret_linucb_dimensional[d]= linucb_data[0][-1]
-        total_error_linucb_dimensional[d]= linucb_data[1][-1]
+        total_regret_linucb_dimensional[d]= linucb_data[2][-1]
+        total_error_linucb_dimensional[d]= linucb_data[3][-1]
         print(str(d) +' dimensions align.')
-        
+
     e.dimensional_regret_plots(total_regret_ts_dimensional,
                                errors=total_error_ts_dimensional,
                                plot_label='Projected Thompson Sampling')
     e.dimensional_regret_plots(total_regret_linucb_dimensional,
                                errors=total_error_linucb_dimensional,
                                plot_label='Projected LinUCB',
+                               plotsuffix='meta_dimensional_regret',
+                               directory='synthetic_data_experiments',
                                do_plot=True)
 
 
@@ -244,78 +266,6 @@ def real_regret_per_dimension_eval(gender=None,
                                do_plot=True)
 
 
-def real_meta_learning_evaluation(gender=None,
-                                  age=None,
-                                  prof=None,
-                                  max_tasks=150,
-                                  context=rd.context_data_set,
-                                  rewards=rd.reward_data_set,
-                                  y_top_limit=None):
-    
-    dimension = len(context[0])
-    explore_scale = 0.1
-    filtered_users = rd.filter_users(np.asarray(rd.user_data_set),
-                                     gender=gender,
-                                     age=age,
-                                     prof=prof)
-    filtered_user_index = np.random.choice(np.asarray([int(i) for i in filtered_users[:, 0]]) - 1, size=max_tasks, replace=False)
-
-
-    ts_data = rt.real_meta_training(filtered_user_index,
-                                    context,
-                                    rewards,
-                                    dimension,
-                                    method='ccipca',
-                                    decision_making='ts',
-                                    exp_scale=explore_scale)
-    ipca_dimunknown_data = rt.real_meta_training(filtered_user_index,
-                                                 context,
-                                                 rewards,
-                                                 dimension,
-                                                 method='ccipca',
-                                                 exp_scale=explore_scale)
-    cella_data = rt.real_meta_training(filtered_user_index,
-                                       context,
-                                       rewards,
-                                       dimension,
-                                       method='full_dimension',
-                                       exp_scale=explore_scale)
-    linucb_data = rt.real_meta_training(filtered_user_index,
-                                        context,
-                                        rewards,
-                                        dimension,
-                                        method='classic_learning',
-                                        exp_scale=explore_scale)
-    thomps_data = rt.real_meta_training(filtered_user_index,
-                                        context,
-                                        rewards,
-                                        dimension,
-                                        method="classic_learning",
-                                        exp_scale=explore_scale,
-                                        decision_making='ts')
-
-
-    e.multiple_regret_plots([linucb_data[2]],
-                            [linucb_data[3]],
-                            plot_label="LinUCB")
-    e.multiple_regret_plots([thomps_data[2]],
-                            [thomps_data[3]],
-                            plot_label="Thompson Sampling")
-    e.multiple_regret_plots([cella_data[2]],
-                            [cella_data[3]],
-                            plot_label="Cella et al., 2020")
-    e.multiple_regret_plots([ts_data[2]],
-                            [ts_data[3]],
-                            plot_label="Projected Thompson Sampling")
-    e.multiple_regret_plots([ipca_dimunknown_data[2]],
-                            [ipca_dimunknown_data[3]],
-                            plot_label="Projected LinUCB",
-                            plotsuffix='real_meta_regret_comparison',
-                            y_label='Total regret over number of users',
-                            x_label='Number of users',
-                            do_plot=True)
-    
-
 def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_set):
     '''Evaluation of the meta learning task.'''
 
@@ -331,13 +281,13 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
     #                                  method='ccipca',
     #                                  high_bias=True,
     #                                  exp_scale=0.1)
-    # peleg_data = t.meta_training(task_params,
-    #                             arm_set,
-    #                             estim=init_estim,
-    #                             method='meta_prior',
-    #                             decision_making='meta_prior',
-    #                             dim_known=False,
-    #                             exp_scale=1)
+    peleg_data = t.meta_training(task_params,
+                                arm_set,
+                                estim=init_estim,
+                                method='meta_prior',
+                                decision_making='meta_prior',
+                                dim_known=False,
+                                exp_scale=1)
     ts_data = t.meta_training(task_params,
                               arm_set,
                               estim=init_estim,
@@ -386,9 +336,6 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
     e.multiple_regret_plots([cella_data[0]],
                             [cella_data[1]],
                             plot_label="Cella et al., 2020")
-    e.multiple_regret_plots([ideal_data[0]],
-                            [ideal_data[1]],
-                            plot_label="Oracle Projection")
     # e.multiple_regret_plots([high_varianca_data[0]],
     #                         [high_varianca_data[1]],
     #                         plot_label="High Variance Solution")
@@ -401,13 +348,17 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
                             plot_label="Projected Thompson Sampling")
     e.multiple_regret_plots([ipca_dimunknown_data[0]],
                             [ipca_dimunknown_data[1]],
-                            plot_label="Projected LinUCB",
-                            do_plot=True)
-    # e.multiple_regret_plots([peleg_data[0]],
-    #                         [peleg_data[1]],
-    #                         plot_label="Peleg et al., 2022",
-    #                         do_plot=True)
-
+                            plot_label="Projected LinUCB")
+    e.multiple_regret_plots([peleg_data[0]],
+                            [peleg_data[1]],
+                            plot_label="Peleg et al., 2022")
+    e.multiple_regret_plots([ideal_data[0]],
+                            [ideal_data[1]],
+                            plot_label="Oracle Projection",
+                            do_plot=True,
+                            directory="synthetic_data_experiments",
+                            plotsuffix='synthetic_expected_regret_comparison',
+                            y_label="Expected Transfer Regret")
 
     e.multiple_regret_plots([linucb_data[2]],
                             [linucb_data[3]],
@@ -418,27 +369,23 @@ def meta_learning_evaluation(task_params, arm_set, init_estim, real_proj, off_se
     e.multiple_regret_plots([cella_data[2]],
                             [cella_data[3]],
                             plot_label="Cella et al., 2020")
-    e.multiple_regret_plots([ideal_data[2]],
-                            [ideal_data[3]],
-                            plot_label="Oracle Projection")
     e.multiple_regret_plots([ts_data[2]],
                             [ts_data[3]],
                             plot_label="Projected Thompson Sampling")
     e.multiple_regret_plots([ipca_dimunknown_data[2]],
                             [ipca_dimunknown_data[3]],
-                            plot_label="Projected LinUCB",
-                            plotsuffix='meta_regret_comparison',
-                            y_label='Total regret over tasks',
-                            x_label='Task number',
+                            plot_label="Projected LinUCB")
+    e.multiple_regret_plots([peleg_data[2]],
+                            [peleg_data[3]],
+                            plot_label="Peleg et al., 2022")
+    e.multiple_regret_plots([ideal_data[2]],
+                            [ideal_data[3]],
+                            plot_label="Oracle",
+                            directory="synthetic_data_experiments",
+                            plotsuffix='synthetic_meta_regret_comparison',
+                            y_label='Total Regret over Tasks',
+                            x_label='Number of Tasks',
                             do_plot=True)
-    # e.multiple_regret_plots([peleg_data[2]],
-    #                         [peleg_data[3]],
-    #                         plotsuffix='meta_regret_comparison',
-    #                         y_label='Total regret over tasks',
-    #                         x_label='Task number',
-    #                         plot_label="Peleg et al., 2022",
-    #                         do_plot=True)
-
 
 def multi_task_evaluation(task_params, arm_set, init_estim, proj_mat):
     '''Evaluates multi task regret, given the projection.'''

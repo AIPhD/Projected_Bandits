@@ -172,7 +172,7 @@ def real_meta_training(filtered_user_index,
         else:
             theta_mean = np.sum(np.asarray(theta_array), axis=0)/len(theta_array)
 
-        if i > 100:
+        if i > 50:
             if method == 'sga':
                 learned_proj, u_proj = t.online_pca(np.asarray(theta_array), u_proj)
             elif method == 'ccipca':

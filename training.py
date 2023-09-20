@@ -27,12 +27,12 @@ def ts_function(x_instances,
                 a_inv,
                 theta_t):
     '''Function handling the thompson sampling with shared subspaces.'''
-    epsilon = 0.1
-    uncertainty_scale = 0.0001 * c.SIGMA**2 * 96/epsilon * len(a_inv[0]) * np.log(1/c.DELTA)
+    epsilon = 0.99
+    uncertainty_scale = 0.00002 * c.SIGMA**2 * 96/epsilon * len(a_inv[0]) * np.log(1/c.DELTA)
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
 
     for i in np.arange(len(a_inv)):
-        cov_a = uncertainty_scale**2 * a_inv[i]
+        cov_a = uncertainty_scale * a_inv[i]
         if np.isnan(np.min(np.abs(cov_a))) or np.isinf(np.max(np.abs(cov_a))):
             print('Nan value in covariance')
         theta_tild[i] = np.random.multivariate_normal(theta_t[i], cov_a)
@@ -180,15 +180,22 @@ def projected_training(theta_opt,
     rewards = np.zeros((repeats, c.EPOCHS))
     a_matrix_p = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
     a_inv_p = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
-    if decision_making == "meta_prior":
-        a_matrix = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
-        a_inv = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
-        cov_a = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
-    else:
-        a_matrix = np.tile(c.LAMB_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
-        a_inv = np.tile(1/c.LAMB_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
+    a_matrix = np.tile(c.LAMB_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
+    a_inv = np.tile(1/c.LAMB_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
     inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - proj_mat
-
+    if decision_making == 'meta_prior':
+        if meta_cov is None:
+            prior_mean = np.zeros((repeats, c.DIMENSION))
+            mean_a = np.zeros((repeats, c.DIMENSION))
+            prior_cov_inv = a_matrix
+            cov_a = a_inv
+        else:
+            prior_mean = meta_theta
+            mean_a = meta_theta
+            cov_a = meta_cov
+            prior_cov_inv = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
+            for i in np.arange(repeats):
+                prior_cov_inv[i] = np.linalg.inv(meta_cov[i])
     for i in range(0, c.REPEATS):
         a_matrix_p[i] = c.LAMB_1 * np.identity(c.DIMENSION) - (c.LAMB_1 - c.LAMB_2) * proj_mat[i]
         a_inv_p[i] = np.linalg.inv(c.LAMB_1 * np.identity(c.DIMENSION) -
@@ -209,39 +216,12 @@ def projected_training(theta_opt,
 
         if decision_making == 'meta_prior':
             if i < c.DIMENSION + 10:
-                index_opt = np.argmax(np.einsum('ij,kj->ik',theta_target, target_data), axis=1)
                 index = np.random.randint(len(target_data), size=repeats)
-                instance = target_data[index]
-                noise = c.EPSILON * np.random.normal(scale=c.SIGMA, size=repeats)
-                r_real = np.einsum('ij,ij->i', theta_target, instance) + noise
-                opt_instance = target_data[index_opt]
-                inst_regret = np.einsum('ij,ij->i',
-                                        theta_target,
-                                        opt_instance) - np.einsum('ij,ij->i',
-                                                                  theta_target,
-                                                                  instance)
-                regret_evol[:, i] = inst_regret
-                a_matrix += np.einsum('ij,ik->ijk', instance, instance)
-                b_vector += r_real[:, np.newaxis] * instance
-                if i == c.DIMENSION + 9:
-                    if meta_cov is None:
-                        for j in range(0, c.REPEATS):
-                            cov_a[j] = np.linalg.inv(a_matrix[j])
-                            a_inv[j] = np.linalg.inv(a_matrix[j])
-                    else:
-                        for j in range(0, c.REPEATS):
-                            a_inv[j] = np.linalg.inv(a_matrix[j])
-                        cov_a = meta_cov
-                if meta_theta is None:
-                    theta_estim = np.einsum('ijk,ik->ij', a_inv, b_vector)
-                    mean_a = np.einsum('ijk,ik->ij', a_inv, b_vector)
-                else:
-                    theta_estim = np.einsum('ijk,ik->ij', a_inv, b_vector)
-                    mean_a = meta_theta
-                continue
-            index = np.argmax(ts_function(target_data,
-                                          cov_a,
-                                          mean_a), axis=1)
+            else:
+                index = np.argmax(ts_function(target_data,
+                                              cov_a,
+                                              mean_a), axis=1)
+
         if decision_making == 'ucb':
             index = np.argmax(ucb_function(target_data,
                                            a_inv_p,
@@ -266,6 +246,8 @@ def projected_training(theta_opt,
         # y_t = np.einsum('lij,ij->li', np.asarray(x_history), theta_estim).T
         a_matrix_p += np.einsum('ij,ik->ijk', instance, instance)
         a_matrix += np.einsum('ij,ik->ijk', instance, instance)
+        # for i in np.arange(repeats):
+        #     a_inv_p[i] = np.linalg.inv(a_matrix_p[i])
         a_inv_p -= np.einsum('ijk,ikl->ijl',
                              a_inv_p,
                              np.einsum('ijk,ikl->ijl',
@@ -302,17 +284,19 @@ def projected_training(theta_opt,
                             cov_a,
                             np.einsum('ijk,ikl->ijl',
                                         np.einsum('ij,ik->ijk',
-                                                instance,
-                                                instance),
+                                                1/c.SIGMA*instance,
+                                                1/c.SIGMA*instance),
                                         cov_a))/(1 + np.einsum('ij,ij->i',
-                                                                instance,
+                                                                1/c.SIGMA*instance,
                                                                 np.einsum('ijk,ik->ij',
                                                                         cov_a,
-                                                                        instance)))[:,
+                                                                        1/c.SIGMA*instance)))[:,
                                                                                     np.newaxis,
                                                                                     np.newaxis]
-            mean_a = np.einsum('ijk,ik->ij', cov_a, b_vector)
-        theta_estim = np.einsum('ijk,ik->ij', a_inv, b_vector)
+            mean_a = np.einsum('ijk,ik->ij',
+                               cov_a,
+                               np.einsum('ijk,ik->ij', prior_cov_inv, prior_mean) + b_vector)
+
         theta_estim_p = np.einsum('ijk,ik->ij', a_inv_p, b_vector_p)
         # gamma_scalar = np.sqrt(np.max(np.abs(rewards[:, :i + 1] - y_t[:, :i + 1])/
         #                               np.sqrt(np.einsum('lij,lij->li',
@@ -333,6 +317,14 @@ def projected_training(theta_opt,
         regret_evol[:, i] = inst_regret
         # regr = inst_regret
         # print(f"Instant regret = {regr}")
+
+    if decision_making == "meta_prior":
+        for i in np.arange(repeats):
+            a_inv[i] = np.linalg.inv(np.matmul(np.asarray(x_history)[:, i, :].T,
+                                               np.asarray(x_history)[:, i, :]))
+        theta_estim = np.einsum('ijk,ik->ij', a_inv, b_vector)
+    else:
+        theta_estim = np.einsum('ijk,ik->ij', a_inv, b_vector)
 
     mean_regret = np.cumsum(regret_evol, axis=1).sum(axis=0)/repeats
     regret_dev = np.sqrt(np.sum((mean_regret - np.cumsum(regret_evol, axis=1))**2, axis=0)/repeats)
@@ -409,7 +401,7 @@ def meta_training(theta_opt_list,
         else:
             theta_mean = np.sum(np.asarray(theta_array), axis=0)/len(theta_array)
 
-        if i > c.NO_TASK - 350:
+        if i > 50:
             if method == 'sga':
                 learned_proj, u_proj = online_pca(np.asarray(theta_array), u_proj)
             elif method == 'ccipca':
@@ -437,14 +429,14 @@ def meta_training(theta_opt_list,
                 meta_theta = theta_mean
                 g_sigma = 1/(i-1) * np.sum(np.asarray(a_inv_array), axis=0)
                 sigma_n = 1/(i-2) * np.sum(np.einsum('tij,tik->tijk',
-                                                     np.asarray(theta_array) - theta_mean,
-                                                     np.asarray(theta_array) - theta_mean),
+                                                     np.asarray(theta_array) - meta_theta,
+                                                     np.asarray(theta_array) - meta_theta),
                                            axis=0) - g_sigma
                 c_w = 50 * (2/(c.DIMENSION)+ 1)
-                meta_cov = sigma_n + c_w * np.sqrt((5 * c.DIMENSION +
-                                                    2 * np.log(c.DIMENSION *
-                                                               i * c.EPOCHS))/(i - 1)) * np.tile(np.identity(c.DIMENSION),
-                                                                                                             (c.REPEATS, 1, 1))
+                meta_cov = sigma_n + c_w*np.sqrt((5*c.DIMENSION +
+                                                  2*np.log(c.DIMENSION*
+                                                           i*c.EPOCHS))/(i - 1))*np.tile(np.identity(c.DIMENSION),
+                                                                                         (c.REPEATS, 1, 1))
 
 
             regret_evol.append(train_data[0])
@@ -456,7 +448,8 @@ def meta_training(theta_opt_list,
     std_dev = np.sqrt(np.sum((mean_regret_evol/(i-50) - np.asarray(regret_evol))**2, axis=0)/(i-50))
     mean_meta_regret = np.cumsum(regret_meta_rounds_evolution,
                                  axis=1).sum(axis=0)/len(regret_meta_rounds_evolution)
-    regret_meta_dev = np.sqrt(np.sum((mean_meta_regret - np.cumsum(regret_meta_rounds_evolution, axis=1))**2,
+    regret_meta_dev = np.sqrt(np.sum((mean_meta_regret - np.cumsum(regret_meta_rounds_evolution,
+                                                                   axis=1))**2,
                                      axis=0)/len(regret_meta_rounds_evolution))
 
     mean_proj = np.sum(learned_proj, axis=0)/len(learned_proj)
