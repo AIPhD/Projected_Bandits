@@ -25,17 +25,26 @@ def ucb_function(x_instances,
 
 def ts_function(x_instances,
                 a_inv,
-                theta_t):
+                theta_t,
+                exp_scale=1):
     '''Function handling the thompson sampling with shared subspaces.'''
     epsilon = 0.99
-    uncertainty_scale = 0.00002 * c.SIGMA**2 * 96/epsilon * len(a_inv[0]) * np.log(1/c.DELTA)
+    uncertainty_scale =  0.001 * exp_scale * c.SIGMA**2 * 16/epsilon * (len(a_inv[0])+2) * np.log(1/c.DELTA)  #0.00002
     theta_tild = np.zeros((len(a_inv), len(theta_t[0])))
 
     for i in np.arange(len(a_inv)):
         cov_a = uncertainty_scale * a_inv[i]
         if np.isnan(np.min(np.abs(cov_a))) or np.isinf(np.max(np.abs(cov_a))):
             print('Nan value in covariance')
-        theta_tild[i] = np.random.multivariate_normal(theta_t[i], cov_a)
+        try:
+            theta_tild[i] = np.random.multivariate_normal(theta_t[i],
+                                                          cov_a)
+        except np.linalg.LinAlgError:
+            print("SVD error in numpy, try different sampling function.")
+            theta_tild[i] = np.random.multivariate_normal(theta_t[i],
+                                                          (cov_a+cov_a.T)/2)
+
+
 
     return np.einsum('jk,ik->ij', x_instances, theta_tild)
 
@@ -73,16 +82,17 @@ def online_pca(theta_data, u_proj=None, learning_rate=1, momentum_scale=0.99):
     return proj_mat, u_proj
 
 
-def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False, dim_set=c.DIMENSION_ALIGN):
+def cc_ipca(theta_data, v_proj=None, dim_known=False, dim_set=c.DIMENSION_ALIGN):
     '''Covariance free strategy to solve online pca, without relying on hyper parameters.'''
     dimension = len(theta_data[0][0])
     repeats = len(theta_data[0])
     dim_align_counter = np.zeros(repeats)
     len_t = len(theta_data)
     mean_theta = np.sum(theta_data, axis=0)/len_t
+    centered_theta = theta_data - mean_theta
     gamma_theta = 1/len_t * np.sum(np.einsum('mik,mil->mikl',
-                                             theta_data - mean_theta,
-                                             theta_data - mean_theta), axis=0)
+                                             centered_theta,
+                                             centered_theta), axis=0)
     if v_proj is None:
         eig_v, u_proj = np.linalg.eigh(gamma_theta)
         v_proj = np.zeros((repeats, dimension, dimension))
@@ -110,20 +120,27 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False, dim_set=c.DIM
         #                                                                 u_proj)
 
 
-        x_proj = np.zeros((repeats, dimension))
-        prod_x = np.zeros((repeats, dimension))
+        x_proj = np.zeros((repeats, dimension, dimension))
+        u_proj = np.zeros((repeats, dimension, dimension))
 
+        for i in np.arange(repeats):
+            u_proj[i] = normalize(v_proj[i], axis=0, norm='l2')
 
-        prod_x = np.einsum('im, ikm-> ik',
-                           np.einsum('ik,ikm->im',
-                                     theta_data[-1, :, :],
-                                     u_proj),
-                           u_proj)
+        for j in np.arange(dimension):
 
-        x_proj = theta_data[-1] - prod_x
+            if j == 0:
+                x_proj[:, :, 0] = centered_theta[-1]
+            else:
+                prod_x = np.einsum('i, ik-> ik',
+                                    np.einsum('ik,ik->i',
+                                              x_proj[:, :, j-1],
+                                              u_proj[:, :, j]),
+                                    u_proj[:, :, j])
 
-        v_proj = len_t/(len_t + 1) * v_proj + 1/(len_t + 1) * np.einsum('ikl,ilj->ikj',
-                                                                        np.einsum('ik,il->ikl',
+                x_proj[:, :, j] = x_proj[:, :, j-1] - prod_x
+
+        v_proj = len_t/(len_t + 1) * v_proj + 1/(len_t + 1) * np.einsum('iklj,ilj->ikj',
+                                                                        np.einsum('ikj,ilj->iklj',
                                                                                   x_proj,
                                                                                   x_proj),
                                                                         u_proj)
@@ -133,14 +150,23 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False, dim_set=c.DIM
     arg_sorted_eig = np.argsort(eig_v, axis=1)
 
 
-    for i in np.arange(len(dim_align_counter)):
-        for j in np.arange(len(eig_v[0])):
+    # for i in np.arange(len(dim_align_counter)):
+    #     for j in np.arange(len(eig_v[0])):
 
-            if eig_v[i][j] < 0.1:
-                dim_align_counter[i] += 1
+    #         if eig_v[i][j] < 0.1:
+    #             dim_align_counter[i] += 1
 
     # for i in np.arange(len(dim_align_counter)):
     #     dim_align_counter[i] = np.argmax(np.diff(eig_v, axis=1, prepend=0)[0])
+
+    for i in np.arange(len(dim_align_counter)):
+        var_rho = 0
+        for j in np.arange(len(eig_v[0])):
+            var_rho += eig_v[i][j]
+            if var_rho <= 1:
+                dim_align_counter[i] += 1
+            else:
+                continue
 
 
     for i in np.arange(repeats):
@@ -157,7 +183,7 @@ def cc_ipca(theta_data, v_proj=None, u_proj=None, dim_known=False, dim_set=c.DIM
 
     proj_mat = np.einsum('ikj,ilj->ikl', u_proj, u_proj)
     print(dim_align_counter)
-    return proj_mat, v_proj, u_proj
+    return proj_mat, v_proj
 
 
 def projected_training(theta_opt,
@@ -170,7 +196,9 @@ def projected_training(theta_opt,
                        arms_pulled_plot=False,
                        exp_scale=1,
                        meta_theta=None,
-                       meta_cov=None):
+                       meta_cov=None,
+                       lamb_1=c.LAMB_1,
+                       lamb_2=c.LAMB_2):
     '''Training algorithm based on linUCB and a biased regularization constrained.'''
 
     theta_estim_p = np.tile(estim, (repeats, 1))
@@ -180,8 +208,8 @@ def projected_training(theta_opt,
     rewards = np.zeros((repeats, c.EPOCHS))
     a_matrix_p = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
     a_inv_p = np.zeros((repeats, c.DIMENSION, c.DIMENSION))
-    a_matrix = np.tile(c.LAMB_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
-    a_inv = np.tile(1/c.LAMB_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
+    a_matrix = np.tile(lamb_2 * np.identity(c.DIMENSION), (repeats, 1, 1))
+    a_inv = np.tile(1/c.LAMB_0 * np.identity(c.DIMENSION), (repeats, 1, 1))
     inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - proj_mat
     if decision_making == 'meta_prior':
         if meta_cov is None:
@@ -197,11 +225,11 @@ def projected_training(theta_opt,
             for i in np.arange(repeats):
                 prior_cov_inv[i] = np.linalg.inv(meta_cov[i])
     for i in range(0, c.REPEATS):
-        a_matrix_p[i] = c.LAMB_1 * np.identity(c.DIMENSION) - (c.LAMB_1 - c.LAMB_2) * proj_mat[i]
-        a_inv_p[i] = np.linalg.inv(c.LAMB_1 * np.identity(c.DIMENSION) -
-                                 (c.LAMB_1 - c.LAMB_2) * proj_mat[i])
+        a_matrix_p[i] = lamb_1 * np.identity(c.DIMENSION) - (lamb_1 - lamb_2) * proj_mat[i]
+        a_inv_p[i] = np.linalg.inv(lamb_1 * np.identity(c.DIMENSION) -
+                                 (lamb_1 - lamb_2) * proj_mat[i])
 
-    b_vector_p = np.tile(np.zeros(c.DIMENSION), (repeats, 1)) + c.LAMB_1 * np.einsum('ijk,ik->ij',
+    b_vector_p = np.tile(np.zeros(c.DIMENSION), (repeats, 1)) + lamb_1 * np.einsum('ijk,ik->ij',
                                                                                      inv_proj,
                                                                                      off_set)
     b_vector = np.tile(np.zeros(c.DIMENSION), (repeats, 1))
@@ -223,17 +251,21 @@ def projected_training(theta_opt,
                                               mean_a), axis=1)
 
         if decision_making == 'ucb':
-            index = np.argmax(ucb_function(target_data,
-                                           a_inv_p,
-                                           theta_estim_p,
-                                           gamma_scalar,
-                                           expl_scale=exp_scale), axis=1)
+            if i < 0: # c.DIMENSION + 10:
+                index = np.random.randint(len(target_data), size=repeats)
+            else:
+                index = np.argmax(ucb_function(target_data,
+                                                a_inv_p,
+                                                theta_estim_p,
+                                                gamma_scalar,
+                                                expl_scale=exp_scale), axis=1)
         elif decision_making == 'ts':
-            if np.isnan(np.min(np.abs(a_inv_p))) or np.isinf(np.max(np.abs(a_inv_p))):
-                print('Nan value in covariance')
-            index = np.argmax(ts_function(target_data,
-                                          a_inv_p,
-                                          theta_estim_p), axis=1)
+            if i < 0: # c.DIMENSION + 10:
+                index = np.random.randint(len(target_data), size=repeats)
+            else:
+                index = np.argmax(ts_function(target_data,
+                                            a_inv_p,
+                                            theta_estim_p), axis=1)
 
         index_opt = np.argmax(np.einsum('ij,kj->ik',theta_target, target_data), axis=1)
         instance = target_data[index]
@@ -305,10 +337,10 @@ def projected_training(theta_opt,
         #                               axis=1) + np.einsum('ij,ij->i',
         #                                                   y_t - rewards[:, :i+1],
         #                                                   y_t - rewards[:, :i+1]))[:, np.newaxis]
-        gamma_scalar = np.asarray([np.sqrt(c.LAMB_2) + c.LAMB_1/np.sqrt(c.LAMB_2) * c.KAPPA +
+        gamma_scalar = np.asarray([1 + #np.sqrt(lamb_2) * 1 + lamb_1/np.sqrt(lamb_2) * c.KAPPA +
                                    np.sqrt(1 * np.log(np.linalg.det(a_matrix_p)/
-                                                      (np.linalg.det(c.LAMB_2 * proj_mat +
-                                                                     c.LAMB_1 * inv_proj) *
+                                                      (np.linalg.det(lamb_2 * proj_mat +
+                                                                     lamb_1 * inv_proj) *
                                                                      c.DELTA**2)))]).T
         no_pulls[np.arange(repeats), index] += 1
         inst_regret = np.einsum('ij,ij->i', theta_target, opt_instance) - np.einsum('ij,ij->i',
@@ -324,6 +356,9 @@ def projected_training(theta_opt,
                                                np.asarray(x_history)[:, i, :]))
         theta_estim = np.einsum('ijk,ik->ij', a_inv, b_vector)
     else:
+        # for i in np.arange(repeats):
+        #     a_inv[i] = np.linalg.inv(np.matmul(np.asarray(x_history)[:, i, :].T,
+        #                                     np.asarray(x_history)[:, i, :]))
         theta_estim = np.einsum('ijk,ik->ij', a_inv, b_vector)
 
     mean_regret = np.cumsum(regret_evol, axis=1).sum(axis=0)/repeats
@@ -351,7 +386,9 @@ def meta_training(theta_opt_list,
                   ideal_proj=None,
                   ideal_offset=None,
                   dim_known=False,
-                  dim_set=c.DIMENSION_ALIGN):
+                  dim_set=c.DIMENSION_ALIGN,
+                  lamb_1=c.LAMB_1,
+                  lamb_2=c.LAMB_2):
     '''Meta learning algorithm updating affine subspace after each training.'''
     theta_array = []
     a_inv_array = []
@@ -363,13 +400,13 @@ def meta_training(theta_opt_list,
         learned_proj = ideal_proj
         off_set = ideal_offset
 
-    u_proj = None
     v_proj = None
     mean_regret_evol = np.zeros(c.EPOCHS)
     regret_evol = []
     regret_meta_rounds_evolution = np.zeros((c.REPEATS, c.NO_TASK))
     meta_theta = None
     meta_cov = None
+    w_list = []
 
     if high_bias:
         a_glob = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
@@ -385,7 +422,9 @@ def meta_training(theta_opt_list,
                                         exp_scale=exp_scale,
                                         decision_making=decision_making,
                                         meta_theta=meta_theta,
-                                        meta_cov=meta_cov)
+                                        meta_cov=meta_cov,
+                                        lamb_1=lamb_1,
+                                        lamb_2=lamb_2)
         regret_meta_rounds_evolution[:, i] = train_data[6][:, -1]
         theta_array.append(train_data[2])
         a_inv_array.append(train_data[5])
@@ -401,17 +440,18 @@ def meta_training(theta_opt_list,
         else:
             theta_mean = np.sum(np.asarray(theta_array), axis=0)/len(theta_array)
 
-        if i > 50:
+        if i > c.TASK_INIT:
             if method == 'sga':
                 learned_proj, u_proj = online_pca(np.asarray(theta_array), u_proj)
             elif method == 'ccipca':
-                learned_proj, v_proj, u_proj = cc_ipca(np.asarray(theta_array),
-                                                       v_proj,
-                                                       u_proj,
-                                                       dim_known=dim_known,
-                                                       dim_set=dim_set)
+                learned_proj, v_proj = cc_ipca(np.asarray(theta_array),
+                                                          None,
+                                                          dim_known=dim_known,
+                                                          dim_set=dim_set)
                 inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - learned_proj
                 off_set = np.einsum('ijk,ik->ij', inv_proj, theta_mean)
+                w_vector = np.einsum('ijk,ik->ij', inv_proj, np.tile(theta_opt, (c.REPEATS, 1))-theta_mean)
+                w_list.append(np.sqrt(np.einsum('ij,ij->i', w_vector, w_vector)))
             elif method == 'full_dimension':
                 learned_proj = np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
                 inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1))
@@ -422,6 +462,8 @@ def meta_training(theta_opt_list,
                 off_set = np.zeros((c.REPEATS, c.DIMENSION))
             elif method == 'ideal_proj':
                 inv_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1)) - learned_proj
+                w_vector = np.einsum('ijk,k->ij', inv_proj, theta_opt) - off_set
+                w_list.append(np.sqrt(np.einsum('ij,ij->i', w_vector, w_vector)))
             elif method == 'meta_prior':
                 learned_proj = np.tile(np.identity(c.DIMENSION), (c.REPEATS, 1, 1))
                 inv_proj =  np.zeros((c.REPEATS, c.DIMENSION, c.DIMENSION))
@@ -444,8 +486,16 @@ def meta_training(theta_opt_list,
 
         i += 1
 
+    if method == 'ccipca' or method == 'ideal_proj':
+        w_array = np.asarray(w_list)
+        # w_mean = 1/len(w_array[0])*np.sum(w_array, axis=1)
+        w_mean = np.cumsum(1/len(w_array[0])*np.sum(w_array, axis=1))/np.cumsum(np.ones(len(w_array)))
+        w_std = np.sqrt(np.sum((w_mean[:, np.newaxis] - w_array)**2, axis=0)/c.REPEATS)
+    else:
+        w_mean = 1
+        w_std = None
 
-    std_dev = np.sqrt(np.sum((mean_regret_evol/(i-50) - np.asarray(regret_evol))**2, axis=0)/(i-50))
+    std_dev = np.sqrt(np.sum((mean_regret_evol/(i-c.TASK_INIT) - np.asarray(regret_evol))**2, axis=0)/(i-c.TASK_INIT))
     mean_meta_regret = np.cumsum(regret_meta_rounds_evolution,
                                  axis=1).sum(axis=0)/len(regret_meta_rounds_evolution)
     regret_meta_dev = np.sqrt(np.sum((mean_meta_regret - np.cumsum(regret_meta_rounds_evolution,
@@ -455,4 +505,4 @@ def meta_training(theta_opt_list,
     mean_proj = np.sum(learned_proj, axis=0)/len(learned_proj)
 
     # return [train_data[0], train_data[1]]
-    return [mean_regret_evol/(i-50), std_dev, mean_meta_regret, regret_meta_dev]
+    return [mean_regret_evol/(i-c.TASK_INIT), std_dev, mean_meta_regret, regret_meta_dev, w_mean**2, w_std]

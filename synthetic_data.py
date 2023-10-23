@@ -21,19 +21,31 @@ class TaskData:
         self.subspace_projection, ortho_mat = self.projection_matrix()
         # print(self.subspace_projection)
         # self.red_projection = self.reduced_projection(ortho_mat)
-        self.theta_opt = 2 * np.random.multivariate_normal(mean=np.zeros(dimension),
-                                                       cov=2*np.identity(dimension),
-                                                       size=task_no)
+        if c.DIMENSION_ALIGN < c.DIMENSION:
+            self.theta_opt = np.random.multivariate_normal(mean=np.zeros(dimension),
+                                                           cov=c.VAR_MAX/(c.DIMENSION-c.DIMENSION_ALIGN)*np.identity(dimension),
+                                                           size=task_no)
+        else:
+            self.theta_opt = np.random.multivariate_normal(mean=np.zeros(dimension),
+                                                           cov=np.identity(dimension),
+                                                           size=task_no)
+
+        # norms = np.sqrt(np.einsum('ij,ij->i', self.theta_opt, self.theta_opt))
+        # for i in np.arange(task_no):
+        #     if norms[i] > c.V_MAX:
+        #         self.theta_opt[i] *= c.V_MAX/norms[i]
+
         self.theta_opt = self.subspace_projection.dot(self.theta_opt.T).T
         self.off_set = np.dot(np.identity(dimension) - self.subspace_projection,
                               np.random.uniform(size=dimension)).T
         # if np.linalg.norm(self.off_set) > 1:
         #     self.off_set = self.off_set/np.linalg.norm(self.off_set)
         self.theta_opt += self.off_set
-        self.theta_opt += c.KAPPA * np.dot(np.identity(dimension) - self.subspace_projection,
-                                           np.random.multivariate_normal(np.zeros(c.DIMENSION),
-                                                                  np.identity(c.DIMENSION),
-                                                                  size=c.NO_TASK).T).T
+        if c.DIMENSION_ALIGN > 0:
+            self.theta_opt += np.dot(np.identity(dimension) - self.subspace_projection,
+                                     np.random.multivariate_normal(np.zeros(c.DIMENSION),
+                                                                   c.KAPPA/c.DIMENSION_ALIGN*np.identity(c.DIMENSION),
+                                                                   size=c.NO_TASK).T).T
 
         # if np.dot(self.theta_opt, self.theta_opt) > 1:
         #     self.theta_opt /= np.sqrt(np.dot(self.theta_opt, self.theta_opt))

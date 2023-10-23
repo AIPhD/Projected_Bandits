@@ -50,7 +50,8 @@ def real_projected_training(target_context,
         elif decision_making == 'ts':
             index = np.argmax(t.ts_function(target_data,
                                             a_inv_p,
-                                            theta_estim_p), axis=1)
+                                            theta_estim_p,
+                                            exp_scale=exp_scale), axis=1)
 
         selected_item = np.random.randint(len(index))
         instance = target_data[[index[selected_item]]]
@@ -98,7 +99,7 @@ def real_projected_training(target_context,
         #                               axis=1) + np.einsum('ij,ij->i',
         #                                                   y_t - rewards[:, :i+1],
         #                                                   y_t - rewards[:, :i+1]))[:, np.newaxis]
-        gamma_scalar = np.asarray([2 +
+        gamma_scalar = np.asarray([1 +
                                    np.sqrt(np.log(np.linalg.det(a_matrix_p)/
                                                       (np.linalg.det(c.LAMB_2 * proj_mat +
                                                                      c.LAMB_1 * inv_proj) *
@@ -176,9 +177,8 @@ def real_meta_training(filtered_user_index,
             if method == 'sga':
                 learned_proj, u_proj = t.online_pca(np.asarray(theta_array), u_proj)
             elif method == 'ccipca':
-                learned_proj, v_proj, u_proj = t.cc_ipca(np.asarray(theta_array),
-                                                         v_proj,
-                                                         u_proj,
+                learned_proj, v_proj = t.cc_ipca(np.asarray(theta_array),
+                                                         None,
                                                          dim_known=dim_known,
                                                          dim_set=dim_set)
                 inv_proj = np.tile(np.identity(dimension), (repeats, 1, 1)) - learned_proj
