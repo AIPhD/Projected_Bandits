@@ -1,4 +1,4 @@
-The code was run on Python 3.8.10 in Ubuntu 20.04
+# The code was run on Python 3.8.10 in Ubuntu 20.04
 
 Install numpy, scipy, matplotlib and sklearn
 
@@ -11,13 +11,13 @@ Within Projected_Bandits directory create two directories:
 
 
 
-For synthetic experiments:
+# For synthetic experiments:
 
 - go to run.py
 
 - uncomment :     
 
-   # meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
+	meta_learning_evaluation(task_params, arm_set, init_estim, proj_mat, off_set)
 
 - run run.py
 
@@ -26,7 +26,7 @@ For synthetic experiments:
 
 
 
-For real data experiments:
+# For real data experiments:
 
 - Download Movielens data from https://grouplens.org/datasets/movielens/1m/
 
